@@ -1,0 +1,109 @@
+# Local framework checkout (managed by setup scripts)
+/AlloyFramework/
+
+# Project-local Luban CLI binaries. Keep Generate.ps1 and VERSION tracked.
+/Tools/Luban/Luban/
+
+# Unity generated directories
+/UnityProj/[Ll]ibrary/
+/UnityProj/[Tt]emp/
+/UnityProj/[Oo]bj/
+/UnityProj/[Bb]uild/
+/UnityProj/[Bb]uilds/
+/UnityProj/[Bb]undles/
+/UnityProj/[Ll]ogs/
+/UnityProj/[Uu]ser[Ss]ettings/
+/UnityProj/[Mm]emoryCaptures/
+/UnityProj/[Rr]ecordings/
+
+# Generated directories left behind when migrating the project into UnityProj
+/Assets/
+/Packages/
+/ProjectSettings/
+/UserSettings/
+/Library/
+/Temp/
+/Logs/
+
+# IDE generated files
+/.idea/
+/UnityProj/.idea/
+/.vs/
+/UnityProj/.vs/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Unity crash reports
+sysinfo.txt
+
+
+# Generated Luban enum schema. Enums.xlsx is the source of truth.
+/DesignData/Luban/Defines/GeneratedEnums.xml
+
+# Wwise generated SoundBanks (regenerate with UnityProj/Tools/Wwise/GenerateSoundBanks.ps1)
+/WwiseProj/**/GeneratedSoundBanks/
+/UnityProj/Assets/StreamingAssets/Audio/GeneratedSoundBanks/
+/UnityProj/Assets/StreamingAssets/Audio/GeneratedSoundBanks.meta
+/UnityProj/Assets/StreamingAssets/Audio.meta
+
+# Wwise authoring caches, backups and per-user settings
+/WwiseProj/**/.cache*/
+/WwiseProj/**/.backup*/
+/WwiseProj/**/*.wsettings
+/WwiseProj/**/*.validationcache
+/WwiseProj/**/*.akd
+/WwiseProj/**/*.prof
+/WwiseProj/**/SoundBankInfoCache.dat
+/WwiseProj/**/IncrementalSoundBankData.xml
+
+# Wwise Unity local database and generated plug-in headers
+/UnityProj/Assets/Wwise/Editor/ProjectData/
+/UnityProj/Assets/Wwise/Editor/ProjectData.meta
+/UnityProj/Assets/Wwise/**/AkWwiseProjectData.asset
+/UnityProj/Assets/Wwise/**/AkWwiseProjectData.asset.meta
+/UnityProj/Assets/Wwise/**/AkWwiseProjectData.asset.*
+/UnityProj/Assets/Wwise/**/IncrementalSoundBankData.xml
+/UnityProj/Assets/Wwise/**/IncrementalSoundBankData.xml.meta
+
+# Wwise installer archives, setup logs, offline documentation and debug symbol metadata
+/UnityProj/WwiseUnityIntegration_*_Src.zip
+/UnityProj/logRunSetup.txt
+/UnityProj/Assets/Wwise/Documentation/
+/UnityProj/Assets/Wwise/Documentation.meta
+/UnityProj/Assets/Wwise/**/*.pdb.meta
+/UnityProj/Assets/Wwise/**/*.mdb.meta
+
+# Locally prepared Pulse test media; keep scripts and collection settings tracked
+/UnityProj/Assets/Res/Video/**/*.pulse
+/UnityProj/Assets/Res/Video/**/*.pulse.meta
+
+# Local Wwise test authoring project; existing tracked edits stay local.
+/WwiseProj/WwiseAudio/
+
+# Local synthetic video test folder metadata.
+/UnityProj/Assets/Res/Video/Synthetic.meta
+
+# Locally prepared subtitle fixtures.
+/UnityProj/Assets/Res/Video/Synthetic/*.srt
+/UnityProj/Assets/Res/Video/Synthetic/*.srt.meta
+
+# Wwise SDK is restored locally; project settings remain tracked.
+/UnityProj/Assets/Wwise/*
+!/UnityProj/Assets/Wwise/ScriptableObjects/
+!/UnityProj/Assets/Wwise/ScriptableObjects.meta
+!/UnityProj/Assets/Wwise/Resources/
+!/UnityProj/Assets/Wwise/Resources.meta

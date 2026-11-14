@@ -1,0 +1,21 @@
+{
+  "name": "Game.Bootstrap",
+  "rootNamespace": "Game",
+  "references": [
+    "Alloy.Runtime",
+    "Alloy.HybridCLR",
+    "UniTask",
+    "Alloy.Audio.Wwise",
+    "UnityLogsViewer.Runtime",
+    "Unity.ugui"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
