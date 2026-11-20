@@ -31,6 +31,9 @@
 /.vs/
 /UnityProj/.vs/
 *.csproj
+!Tools/WaterSortRules/WaterSortRules.csproj
+/Tools/WaterSortRules/bin/
+/Tools/WaterSortRules/obj/
 *.sln
 *.suo
 *.user

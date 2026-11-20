@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using AlloyFramework;
 using Cysharp.Threading.Tasks;
+using Game.WaterSortPuzzle;
 using UnityEngine.Scripting;
 
 namespace Game
@@ -37,10 +38,10 @@ namespace Game
             m_isInitialized = true;
         }
 
-        /// <summary>在 Boot 场景完成空白模板启动，为后续业务入口保留接入位置。</summary>
+        /// <summary>在 Boot 场景创建倒水游戏关卡入口。</summary>
         /// <param name="loadingSession">框架已开始游戏入口步骤的共享会话，仅用于报告内部进度。</param>
         /// <param name="cancellationToken">用于取消进入游戏流程的令牌。</param>
-        /// <returns>模板启动完成的任务。</returns>
+        /// <returns>倒水游戏界面创建完成的任务。</returns>
         /// <exception cref="ArgumentNullException">共享的 Loading 会话为空。</exception>
         /// <exception cref="InvalidOperationException">业务尚未初始化或入口重复执行。</exception>
         public async UniTask MainAsync(
@@ -58,9 +59,9 @@ namespace Game
                 throw new InvalidOperationException("游戏入口需要业务初始化完成，且不能重复执行。");
             }
 
-            // 空白模板不加载演示场景或页面，后续项目在此接入业务入口。
+            // 框架已完成 UI 根节点和业务定义初始化，首屏直接打开选关预制。
             m_hasStarted = true;
-            await UniTask.NextFrame(cancellationToken);
+            await WaterSortNavigation.StartAsync(cancellationToken);
             loadingSession.Report(1f);
         }
 
@@ -70,7 +71,14 @@ namespace Game
         {
             // 初始化中途失败时也退出已启动模块，避免残留网络和模型状态。
             m_isInitialized = false;
-            await m_startupPipeline.ShutdownAsync();
+            try
+            {
+                if (m_hasStarted) await WaterSortNavigation.ShutdownAsync();
+            }
+            finally
+            {
+                await m_startupPipeline.ShutdownAsync();
+            }
         }
     }
 }

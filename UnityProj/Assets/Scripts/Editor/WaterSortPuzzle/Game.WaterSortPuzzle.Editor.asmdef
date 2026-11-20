@@ -1,0 +1,7 @@
+{
+  "name": "Game.WaterSortPuzzle.Editor",
+  "rootNamespace": "Game.WaterSortPuzzle.Editor",
+  "references": ["Game.Runtime"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}
