@@ -17,13 +17,28 @@ namespace Game.UI
 
         private static Dictionary<string, UIDefinition> CreateDefinitions()
         {
-            var definitions = new Dictionary<string, UIDefinition>(2);
+            var definitions = new Dictionary<string, UIDefinition>(3);
             AddDefinitions0(definitions);
             return definitions;
         }
 
         private static void AddDefinitions0(Dictionary<string, UIDefinition> definitions)
         {
+            // 注册 ConfirmUI 的静态界面定义。
+            definitions.Add(
+                "ConfirmUI",
+                new UIDefinitionBuilder<ConfirmUIView, ConfirmUIController, ConfirmUIData>("ConfirmUI")
+                    .Location("Prefabs/UI/ConfirmUI/ConfirmUI")
+                    .Layer(UILayer.POPUP)
+                    .Layout(UILayoutMode.Window)
+                    .Background(UIBackgroundMode.None)
+                    .Input(UIInputMode.Block)
+                    .Cache(UICacheMode.DestroyOnClose)
+                    .OpenMode(UIOpenMode.SingleRefresh)
+                    .Navigation(UINavigationMode.None)
+                    .PauseCovered(false)
+                    .Build());
+
             // 注册 GamePlayUI 的静态界面定义。
             definitions.Add(
                 "GamePlayUI",

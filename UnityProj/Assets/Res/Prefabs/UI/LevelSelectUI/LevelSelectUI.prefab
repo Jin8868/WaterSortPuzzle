@@ -200,7 +200,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 0
+  m_PresetInfoIsWorld: 1
 --- !u!114 &4218924221477728394
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -321,13 +321,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Content: {fileID: 7212661329796769269}
-  m_Horizontal: 1
-  m_Vertical: 0
+  m_Horizontal: 0
+  m_Vertical: 1
   m_MovementType: 2
   m_Elasticity: 0.1
   m_Inertia: 1
   m_DecelerationRate: 0.135
-  m_ScrollSensitivity: 1
+  m_ScrollSensitivity: 36
   m_Viewport: {fileID: 4632602551055826333}
   m_HorizontalScrollbar: {fileID: 0}
   m_VerticalScrollbar: {fileID: 0}
@@ -339,13 +339,17 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_defaultPrefab: {fileID: -4572079532169156072, guid: c5ed27925cc6c314ba117904bfc2e40d, type: 3}
-  m_itemSize: {x: 300, y: 150}
-  m_spacing: 0
+  m_itemSize: {x: 240, y: 120}
+  m_crossAxisCount: 3
+  m_visibleLineCount: 4
+  m_crossAxisSpacing: 14
+  m_fitCrossAxis: 1
+  m_spacing: 14
   m_padding:
-    m_Left: 0
-    m_Right: 0
-    m_Top: 0
-    m_Bottom: 0
+    m_Left: 20
+    m_Right: 20
+    m_Top: 20
+    m_Bottom: 20
   m_buffer: 100
   m_maxInactiveItems: 32
 --- !u!1 &6545702515897689898

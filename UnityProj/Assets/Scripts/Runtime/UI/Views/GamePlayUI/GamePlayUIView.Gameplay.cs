@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using AlloyFramework;
+using AlloyFramework.UI;
 using Cysharp.Threading.Tasks;
 using Game.WaterSortPuzzle;
 using UnityEngine;
@@ -10,7 +11,6 @@ namespace Game.UI
 {
     public sealed partial class GamePlayUIView
     {
-        private const float CONFIRMATIONSECONDS = 3f;
         private const float REFERENCEWIDTH = 1760f;
         private const float REFERENCEHEIGHT = 840f;
 
@@ -19,8 +19,7 @@ namespace Game.UI
         private readonly Stack<BottleCell> m_bottlePool = new Stack<BottleCell>(); // 回收后的瓶子。
         private IAssetHandle<GameObject> m_bottlePrefabHandle; // 与瓶子实例共用页面生命周期的预制体句柄。
         private WaterSortPuzzleController m_controller; // 当前打开期间的游戏会话。
-        private EConfirmation m_confirmation; // 等待再次点击的操作。
-        private float m_confirmationRemaining; // 二次点击的确认窗口。
+        private ConfirmationRequest m_confirmationRequest; // 当前关卡正在等待的确认请求。
         private string m_levelLabel; // 普通关卡标题。
         private bool m_playing; // 是否已载入关卡。
         private bool m_navigating; // 是否正在返回选关页。
@@ -28,12 +27,7 @@ namespace Game.UI
         private int m_lastReverse = int.MinValue; // 上次显示的撤销次数。
         private int m_lastTimerSecond = -1; // 上次显示的无尽倒计时秒数。
 
-        private enum EConfirmation
-        {
-            None,
-            Reset,
-            Back
-        }
+        private bool CanPlay => m_playing && !m_navigating && m_confirmationRequest == null && !m_controller.IsStopped;
 
         internal async UniTask PrepareGameplayAsync(CancellationToken cancellationToken)
         {
@@ -94,9 +88,9 @@ namespace Game.UI
             m_playing = false;
             m_navigationVersion++;
             m_navigating = false;
+            InvalidateConfirmation();
             m_controller.Stop();
             ReleaseAll();
-            ResetConfirmation();
             RefreshButtons();
             m_controller.LevelLoaded -= HandleLevelLoaded;
             m_controller.BottleReplaced -= HandleBottleReplaced;
@@ -117,21 +111,19 @@ namespace Game.UI
 
             float deltaTime = Time.unscaledDeltaTime;
             m_controller.Tick(deltaTime);
-            if (m_confirmation != EConfirmation.None)
-            {
-                m_confirmationRemaining -= deltaTime;
-                if (m_confirmationRemaining <= 0f)
-                {
-                    ResetConfirmation();
-                    RefreshLevelInfo();
-                }
-            }
-            else if (m_controller.IsInfinity && !m_controller.IsStopped)
+            if (m_controller.IsInfinity && !m_controller.IsStopped)
             {
                 int second = Mathf.CeilToInt(m_controller.RemainingTime);
                 if (second != m_lastTimerSecond)
                     RefreshLevelInfo();
             }
+
+            // 外部关闭或刷新可能没有按钮回调；正常关闭期间保留等待中的选择。
+            ConfirmationRequest request = m_confirmationRequest;
+            UIHandle<ConfirmUIController> handle = request?.Handle;
+            if (handle != null && (!handle.IsValid ||
+                (handle.State != UIState.Closing && !handle.Controller.IsShowing(request.Data))))
+                m_confirmationRequest = null;
 
             RefreshButtons();
         }
@@ -191,9 +183,9 @@ namespace Game.UI
 
         private void HandleLevelLoaded()
         {
+            InvalidateConfirmation();
             GoResult.SetActive(false);
             ReleaseAll();
-            ResetConfirmation();
 
             // 按现有棋盘容器的可用尺寸调整瓶子数据，保留容器在预制体中的布局。
             RectTransform board = (RectTransform)GoBottle.transform;
@@ -240,7 +232,7 @@ namespace Game.UI
 
         private void RefreshButtons()
         {
-            bool canPlay = m_playing && !m_navigating && !m_controller.IsStopped;
+            bool canPlay = CanPlay;
             BtnBack.interactable = canPlay;
             BtnReset.interactable = canPlay;
             BtnRetrun.interactable = canPlay && m_controller.CanReverse;
@@ -272,7 +264,9 @@ namespace Game.UI
 
         private void HandleReverse()
         {
-            ResetConfirmation();
+            if (!CanPlay)
+                return;
+
             m_controller.Reverse();
             RefreshLevelInfo();
             RefreshButtons();
@@ -280,51 +274,91 @@ namespace Game.UI
 
         private void HandleReset()
         {
-            if (Confirm(EConfirmation.Reset, "再按重置"))
-                m_controller.Reset();
+            if (CanPlay)
+                OpenConfirmationAsync("重置关卡", "要重新开始当前关卡吗？", m_controller.Reset).Forget();
         }
 
         private void HandleBack()
         {
-            if (!m_controller.IsStopped)
-            {
-                if (!Confirm(EConfirmation.Back, "再按返回"))
-                    return;
+            if (!CanPlay)
+                return;
 
-                if (m_controller.IsInfinity)
-                {
-                    SettleInfinity();
-                    ShowResult();
-                    return;
-                }
+            string description = m_controller.IsInfinity ? "要结束挑战并结算当前得分吗？" : "要返回选关界面吗？";
+            OpenConfirmationAsync("返回", description, HandleConfirmedBack).Forget();
+        }
+
+        private void HandleConfirmedBack()
+        {
+            if (m_controller.IsInfinity)
+            {
+                SettleInfinity();
+                ShowResult();
+                return;
             }
 
             ReturnToSelectionAsync().Forget();
         }
 
-        private bool Confirm(EConfirmation confirmation, string prompt)
+        private async UniTask OpenConfirmationAsync(string title, string description, Action onConfirm)
         {
-            if (m_confirmation == confirmation)
+            // 在异步加载前占用请求，并为每次请求绑定独立的回调身份。
+            using var loading = new CancellationTokenSource();
+            var request = new ConfirmationRequest(this, title, description, onConfirm, loading);
+            m_confirmationRequest = request;
+            RefreshButtons();
+            try
             {
-                ResetConfirmation();
-                return true;
+                UIHandle<ConfirmUIController> handle =
+                    await UIManager.Instance.OpenAsync(GameUI.ConfirmUI, request.Data, loading.Token);
+                if (ReferenceEquals(m_confirmationRequest, request))
+                    request.Handle = handle;
+                else if (handle.IsValid && handle.Controller.IsShowing(request.Data))
+                    await handle.CloseAsync();
             }
-
-            m_confirmation = confirmation;
-            m_confirmationRemaining = CONFIRMATIONSECONDS;
-            TxtLevelInfo.text = prompt;
-            return false;
+            catch (OperationCanceledException)
+            {
+                // 关卡结束或界面关闭后，取消仍在加载的弹窗。
+            }
+            finally
+            {
+                request.Loading = null;
+                if (request.Handle == null && ReferenceEquals(m_confirmationRequest, request))
+                {
+                    m_confirmationRequest = null;
+                    RefreshButtons();
+                }
+            }
         }
 
-        private void ResetConfirmation()
+        private void FinishConfirmation(ConfirmationRequest request, Action action)
         {
-            m_confirmation = EConfirmation.None;
-            m_confirmationRemaining = 0f;
+            // 弹窗关闭后才收到选择，关卡切换、结算或关页都会先清除旧请求。
+            if (!ReferenceEquals(m_confirmationRequest, request))
+                return;
+
+            m_confirmationRequest = null;
+            RefreshButtons();
+            if (CanPlay)
+                action?.Invoke();
+        }
+
+        private void InvalidateConfirmation()
+        {
+            ConfirmationRequest request = m_confirmationRequest;
+            if (request == null)
+                return;
+
+            // 先阻止旧回调，再取消加载或按句柄关闭仍显示此请求的弹窗。
+            m_confirmationRequest = null;
+            request.Loading?.Cancel();
+            UIHandle<ConfirmUIController> handle = request.Handle;
+            if (handle != null && handle.IsValid && handle.Controller.IsShowing(request.Data))
+                handle.CloseAsync().Forget();
         }
 
         private void HandleCompleted()
         {
-            ResetConfirmation();
+            InvalidateConfirmation();
             if (m_controller.IsInfinity)
                 SettleInfinity();
             else
@@ -396,6 +430,39 @@ namespace Game.UI
             CloseSession();
             m_bottlePrefabHandle?.Dispose();
             m_bottlePrefabHandle = null;
+        }
+
+        private sealed class ConfirmationRequest
+        {
+            private readonly GamePlayUIView m_owner; // 发起请求的玩法页。
+            private readonly Action m_onConfirm; // 确认且仍属于当前关卡时执行的操作。
+
+            internal ConfirmationRequest(
+                GamePlayUIView owner,
+                string title,
+                string description,
+                Action onConfirm,
+                CancellationTokenSource loading)
+            {
+                m_owner = owner;
+                m_onConfirm = onConfirm;
+                Loading = loading;
+                Data = new ConfirmUIData(title, description, HandleCancel, HandleConfirm);
+            }
+
+            internal ConfirmUIData Data { get; }
+            internal CancellationTokenSource Loading { get; set; }
+            internal UIHandle<ConfirmUIController> Handle { get; set; }
+
+            private void HandleCancel()
+            {
+                m_owner.FinishConfirmation(this, null);
+            }
+
+            private void HandleConfirm()
+            {
+                m_owner.FinishConfirmation(this, m_onConfirm);
+            }
         }
     }
 }

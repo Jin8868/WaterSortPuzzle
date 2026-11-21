@@ -41,3 +41,18 @@ MonoBehaviour:
     m_openMode: 0
     m_navigation: 0
     m_pauseCovered: 0
+  - m_prefabGuid: 116ea939651edd44f9f35d04c44cdc38
+    m_uiName: ConfirmUI
+    m_scriptNamespace: Game.UI
+    m_dataTypeName: ConfirmUIData
+    m_viewFolder: Assets/Scripts/Runtime/UI/Views/ConfirmUI
+    m_controllerFolder: Assets/Scripts/Runtime/UI/Controllers/ConfirmUI
+    m_hasGenerated: 1
+    m_layer: 200
+    m_layout: 1
+    m_background: 0
+    m_input: 1
+    m_cache: 0
+    m_openMode: 0
+    m_navigation: 0
+    m_pauseCovered: 0

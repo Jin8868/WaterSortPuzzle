@@ -8,6 +8,12 @@ namespace Game.UI
     {
 
         /// <summary>
+        /// ConfirmUI 的静态界面定义。
+        /// </summary>
+        public static UIDefinition<ConfirmUIView, ConfirmUIController, ConfirmUIData> ConfirmUI =>
+            (UIDefinition<ConfirmUIView, ConfirmUIController, ConfirmUIData>)m_definitions["ConfirmUI"];
+
+        /// <summary>
         /// GamePlayUI 的静态界面定义。
         /// </summary>
         public static UIDefinition<GamePlayUIView, GamePlayUIController> GamePlayUI =>
