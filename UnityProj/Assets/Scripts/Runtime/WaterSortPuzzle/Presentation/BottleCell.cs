@@ -28,6 +28,7 @@ namespace Game.WaterSortPuzzle
         private RectTransform m_cap; // 完成时落下的瓶盖。
         private Vector2 m_capHome; // 瓶盖原始位置。
         private GameObject m_selection; // 瓶子外圈选中高亮。
+        private BottleHintView m_hint; // 预制体中的提示描边。
         private AudioSource m_pourAudio; // 当前瓶的独立倒水声。
         private AudioClip m_pourClip; // 循环的程序水声。
         private PourCommand m_outgoing; // 当前源瓶命令。
@@ -88,6 +89,7 @@ namespace Game.WaterSortPuzzle
             m_controller.SyncData -= HandleSyncData;
             m_controller.BottleSelectChange -= HandleSelection;
             m_controller.Stopped -= HandleStopped;
+            SetHint(false);
             ClearPourEffects();
             m_waiting.Clear();
             m_receiving.Clear();
@@ -141,6 +143,12 @@ namespace Game.WaterSortPuzzle
                 m_controller.TrySelect(Data);
         }
 
+        internal void SetHint(bool visible)
+        {
+            if (m_hint != null && m_hint.gameObject.activeSelf != visible)
+                m_hint.gameObject.SetActive(visible);
+        }
+
         private void InitializeVisuals()
         {
             if (m_rect != null)
@@ -150,6 +158,8 @@ namespace Game.WaterSortPuzzle
             m_rect = (RectTransform)transform;
             m_liquid = GetComponentInChildren<BottleLiquidView>(true);
             m_selection = transform.Find("go_select").gameObject;
+            m_hint = GetComponentInChildren<BottleHintView>(true);
+            SetHint(false);
             m_cap = (RectTransform)transform.Find("go_top");
             m_capHome = m_cap.anchoredPosition;
             transform.Find("go_bottle").GetComponent<Image>().raycastTarget = true;

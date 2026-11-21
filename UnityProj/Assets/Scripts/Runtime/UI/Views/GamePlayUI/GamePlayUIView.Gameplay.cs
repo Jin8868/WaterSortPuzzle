@@ -58,12 +58,17 @@ namespace Game.UI
             m_controller.LevelLoaded += HandleLevelLoaded;
             m_controller.BottleReplaced += HandleBottleReplaced;
             m_controller.Completed += HandleCompleted;
+            m_controller.BeginPour += HandleHintPourStarted;
+            m_controller.FinishPour += HandleHintPourFinished;
+            m_controller.SyncData += HandleHintUndo;
+            m_controller.Stopped += StopHints;
             GoResult.SetActive(false);
             BtnClose.onClick.AddListener(HandleResultClose);
             BtnNext.onClick.AddListener(HandleNextLevel);
             BtnBack.onClick.AddListener(HandleBack);
             BtnReset.onClick.AddListener(HandleReset);
             BtnRetrun.onClick.AddListener(HandleReverse);
+            BtnHint.onClick.AddListener(StartHints);
             RefreshButtons();
         }
 
@@ -95,12 +100,17 @@ namespace Game.UI
             m_controller.LevelLoaded -= HandleLevelLoaded;
             m_controller.BottleReplaced -= HandleBottleReplaced;
             m_controller.Completed -= HandleCompleted;
+            m_controller.BeginPour -= HandleHintPourStarted;
+            m_controller.FinishPour -= HandleHintPourFinished;
+            m_controller.SyncData -= HandleHintUndo;
+            m_controller.Stopped -= StopHints;
             GoResult.SetActive(false);
             BtnClose.onClick.RemoveListener(HandleResultClose);
             BtnNext.onClick.RemoveListener(HandleNextLevel);
             BtnBack.onClick.RemoveListener(HandleBack);
             BtnReset.onClick.RemoveListener(HandleReset);
             BtnRetrun.onClick.RemoveListener(HandleReverse);
+            BtnHint.onClick.RemoveListener(StartHints);
             m_controller = null;
         }
 
@@ -130,6 +140,7 @@ namespace Game.UI
 
         private void LateUpdate()
         {
+            RefreshPendingHint();
             // 等所有瓶子更新完倾角和接水动画，再按本帧液面连接水流。
             foreach (BottleCell source in m_liveCells)
             {
@@ -236,6 +247,7 @@ namespace Game.UI
             BtnBack.interactable = canPlay;
             BtnReset.interactable = canPlay;
             BtnRetrun.interactable = canPlay && m_controller.CanReverse;
+            BtnHint.interactable = canPlay && !m_controller.IsInfinity && !m_hintsEnabled;
             BtnClose.interactable = m_playing && !m_navigating;
             BtnNext.interactable = BtnClose.interactable;
             if (m_lastReverse != m_controller.ReverseRemaining)
@@ -258,7 +270,7 @@ namespace Game.UI
             }
             else
             {
-                TxtLevelInfo.text = m_levelLabel;
+                TxtLevelInfo.text = GetHintLevelInfo();
             }
         }
 

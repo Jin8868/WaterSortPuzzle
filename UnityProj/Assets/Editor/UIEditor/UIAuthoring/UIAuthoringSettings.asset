@@ -15,6 +15,7 @@ MonoBehaviour:
   m_items:
   - m_prefabGuid: 0466648ca73b01646a42c918ba8c5308
     m_uiName: LevelSelectUI
+    m_dataTypeName: 
     m_scriptNamespace: Game.UI
     m_viewFolder: Assets/Scripts/Runtime/UI/Views/LevelSelectUI
     m_controllerFolder: Assets/Scripts/Runtime/UI/Controllers/LevelSelectUI
@@ -29,6 +30,7 @@ MonoBehaviour:
     m_pauseCovered: 0
   - m_prefabGuid: 96af2c9a455b9084b9eaa96730e0af01
     m_uiName: GamePlayUI
+    m_dataTypeName: 
     m_scriptNamespace: Game.UI
     m_viewFolder: Assets/Scripts/Runtime/UI/Views/GamePlayUI
     m_controllerFolder: Assets/Scripts/Runtime/UI/Controllers/GamePlayUI
@@ -43,8 +45,8 @@ MonoBehaviour:
     m_pauseCovered: 0
   - m_prefabGuid: 116ea939651edd44f9f35d04c44cdc38
     m_uiName: ConfirmUI
-    m_scriptNamespace: Game.UI
     m_dataTypeName: ConfirmUIData
+    m_scriptNamespace: Game.UI
     m_viewFolder: Assets/Scripts/Runtime/UI/Views/ConfirmUI
     m_controllerFolder: Assets/Scripts/Runtime/UI/Controllers/ConfirmUI
     m_hasGenerated: 1
