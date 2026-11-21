@@ -5,9 +5,6 @@ namespace Game.WaterSortPuzzle
         private readonly WaterSortPuzzleController m_controller; // 命令所属控制器。
         private readonly int m_originalInvisibleCount; // 撤销时恢复的隐藏层数。
         internal BottleData Replacement; // 本次完成后替换的新瓶。
-        internal int ComboID; // 奖励归属的连击代次。
-        internal float ComboWindow; // 本次得分时开启的完整连击窗口。
-        internal double ComboDeadline; // 本次得分时开启的连击到期时间。
         internal int AwardScore; // 本命令实际获得的分数。
         internal float AwardTime; // 本命令增加的剩余时间。
         internal bool CompletionAwarded; // 防止重复完成回调。

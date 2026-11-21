@@ -11,6 +11,7 @@ Shader "WaterSortPuzzle/Liquid"
         _SurfaceColor ("Surface Color", Color) = (0,0,0,0)
         _TexLayerCount ("Hidden Layers", Float) = 0
         _TexLayerSwitchProgress ("Reveal Progress", Range(0, 1)) = 0
+        _ShowBubbles ("Receiving Bubbles", Float) = 0
         _WaveAmplitude ("Wave Amplitude", Float) = 0
         _EllipseHeight ("Surface Highlight Height", Float) = 0.02
         _Rotation ("Bottle Rotation", Float) = 0
@@ -88,6 +89,7 @@ Shader "WaterSortPuzzle/Liquid"
             float _TexLayerCount;
             float _TexLayerSwitchProgress;
             float _WaveAmplitude;
+            float _ShowBubbles;
             float _EllipseHeight;
             float _Rotation;
 
@@ -126,7 +128,7 @@ Shader "WaterSortPuzzle/Liquid"
                 return 1.0 - smoothstep(0.05 - edge, 0.05 + edge, stroke);
             }
 
-            half4 Frag(VertexOutput input) : SV_Target
+            half4 BottleColor(VertexOutput input)
             {
                 // 使用与实际宽高比一致的坐标计算重力方向，轮廓仍采样原始纹理。
                 float2 local = (input.uv - 0.5) * float2(WidthRatio, 1.0);
@@ -157,8 +159,27 @@ Shader "WaterSortPuzzle/Liquid"
                 half3 hiddenColor = lerp(half3(0.25, 0.28, 0.31), half3(0.95, 0.97, 1.0), QuestionMark(symbol));
                 color.rgb = lerp(color.rgb, hiddenColor, hidden * (1.0 - reveal));
 
+                // 在瓶内直接绘制四条错相上浮的气泡，不需要额外的 UI 图像。
+                if (_ShowBubbles > 0.5 && _FillAmount >= 1.0)
+                {
+                    float lane = clamp(floor(horizontal.x / 0.036 + 2.0), 0.0, 3.0);
+                    float phase = frac(_Time.y * 2.4 + lane * 0.25);
+                    float2 center = float2((lane - 1.5) * 0.036 + sin(phase * 3.14159) * 0.008,
+                        surface - lerp(0.15, 0.025, phase));
+                    float ring = abs(length(horizontal - center) - lerp(0.006, 0.014, phase));
+                    float opacity = (1.0 - smoothstep(0.001, 0.001 + edge, ring)) * sin(phase * 3.14159);
+                    color.rgb = lerp(color.rgb, half3(1.0, 1.0, 1.0), opacity * 0.65);
+                }
+
                 color *= input.color;
                 color.a *= fill * tex2D(_MainTex, input.uv).a * 0.88;
+                return color;
+            }
+
+            half4 Frag(VertexOutput input) : SV_Target
+            {
+                // 水流四边形使用独立顶点色，与瓶内液体共用 UI 裁剪。
+                half4 color = input.uv.x > 1.5 ? input.color : BottleColor(input);
                 #ifdef UNITY_UI_CLIP_RECT
                     color.a *= UnityGet2DClipping(input.position, _ClipRect);
                 #endif

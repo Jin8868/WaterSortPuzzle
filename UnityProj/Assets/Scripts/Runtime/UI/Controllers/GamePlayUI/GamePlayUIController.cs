@@ -1,5 +1,7 @@
 using System;
+using System.Threading;
 using AlloyFramework.UI;
+using Cysharp.Threading.Tasks;
 
 namespace Game.UI
 {
@@ -14,9 +16,9 @@ namespace Game.UI
             View.EnterLevel(levelID);
         }
 
-        protected override void OnCreate()
+        protected override UniTask OnPrepareAsync(UIEmptyData data, CancellationToken cancellationToken)
         {
-            View.InitializeGameplay();
+            return View.PrepareGameplayAsync(cancellationToken);
         }
 
         protected override void OnOpen()

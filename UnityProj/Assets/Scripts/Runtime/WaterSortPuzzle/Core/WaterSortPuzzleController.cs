@@ -11,13 +11,10 @@ namespace Game.WaterSortPuzzle
         private readonly Dictionary<BottleData, int> m_incomingCounts = new Dictionary<BottleData, int>(); // 接水计数。
         private readonly Dictionary<BottleData, int> m_outgoingCounts = new Dictionary<BottleData, int>(); // 倒水计数。
         private readonly InfinityBottleGenerator m_generator = new InfinityBottleGenerator(); // 无尽颜色生成器。
-        private readonly List<PourCommand> m_comboAwards = new List<PourCommand>(); // 当前连击按得分顺序记录。
         // 完成动画令牌，用于过滤撤销后的晚完成回调。
         private readonly Dictionary<BottleData, PourCommand> m_completionTokens =
             new Dictionary<BottleData, PourCommand>();
         private BottleData m_selectedBottle; // 当前选中源瓶。
-        private int m_comboID; // 区分过期后重新开始的连击代次。
-        private double m_elapsedTime; // 当前关卡已经过的实时时间。
         private bool m_resetting; // 阻止重置期间事件重新发起命令。
 
         public event Action<PourCommand> BeginPour;
@@ -39,10 +36,10 @@ namespace Game.WaterSortPuzzle
         public int LevelID { get; private set; }
         public bool IsInfinity { get; private set; }
         public int Score { get; private set; }
-        public int Combo { get; private set; }
+        public int SortedBottleCount { get; private set; }
+        public int ResetCount { get; private set; }
+        public double ElapsedSeconds { get; private set; }
         public float RemainingTime { get; private set; }
-        public float ComboRemainingTime { get; private set; }
-        public float ComboWindow { get; private set; } = WaterSortSettings.COMBOWINDOW;
         public int ReverseRemaining { get; private set; }
         public bool CanReverse => !IsStopped && !m_resetting && ReverseRemaining != 0 && m_commands.Count > 0;
         public bool IsStopped { get; private set; }
@@ -54,6 +51,13 @@ namespace Game.WaterSortPuzzle
         public void LoadLevel(int levelID)
         {
             LevelDefinition level = WaterSortLevelCatalog.Get(levelID);
+            ElapsedSeconds = 0d;
+            ResetCount = 0;
+            StartAttempt(level);
+        }
+
+        private void StartAttempt(LevelDefinition level)
+        {
             m_resetting = true;
             Stop();
             m_commands.Clear();
@@ -61,20 +65,15 @@ namespace Game.WaterSortPuzzle
             m_incomingCounts.Clear();
             m_outgoingCounts.Clear();
             m_completionTokens.Clear();
-            m_comboAwards.Clear();
             m_bottles.Clear();
             m_bottles.AddRange(level.CreateBottles());
-            LevelID = levelID;
+            LevelID = level.ID;
             IsInfinity = level.IsInfinity;
             if (IsInfinity)
                 m_generator.FillInfinityTemplate(m_bottles);
+            SortedBottleCount = 0;
             Score = 0;
-            Combo = 0;
-            m_comboID++;
-            m_elapsedTime = 0d;
             RemainingTime = IsInfinity ? WaterSortSettings.DURATION : 0f;
-            ComboRemainingTime = 0f;
-            ComboWindow = WaterSortSettings.COMBOWINDOW;
             ReverseRemaining = level.ReverseCount;
             IsStopped = false;
             IsCompleted = false;
@@ -88,8 +87,11 @@ namespace Game.WaterSortPuzzle
         /// <summary>重新加载当前关卡。</summary>
         public void Reset()
         {
-            if (LevelID != 0)
-                LoadLevel(LevelID);
+            if (LevelID == 0 || IsStopped) return;
+
+            // 重置重新摆瓶，保留本关累计耗时并记录已确认的重置操作。
+            ResetCount++;
+            StartAttempt(WaterSortLevelCatalog.Get(LevelID));
         }
 
         /// <summary>按选瓶规则切换选择或发起倒水。</summary>
@@ -183,21 +185,13 @@ namespace Game.WaterSortPuzzle
 
             // 奖励绑定命令，撤销及过期回调都可按所有权验证。
             owner.CompletionAwarded = true;
+            SortedBottleCount++;
             m_completionTokens.Remove(bottle);
-            if (Combo == 0)
-                m_comboID++;
-            owner.ComboID = m_comboID;
-            Combo++;
-            ComboWindow = WaterSortSettings.GetComboWindow(Combo);
-            ComboRemainingTime = ComboWindow;
-            owner.ComboWindow = ComboWindow;
-            owner.ComboDeadline = m_elapsedTime + ComboWindow;
-            m_comboAwards.Add(owner);
-            owner.AwardScore = WaterSortSettings.COMPLETIONSCORE * Combo;
+            owner.AwardScore = WaterSortSettings.COMPLETIONSCORE;
             Score += owner.AwardScore;
             if (IsInfinity)
             {
-                owner.AwardTime = WaterSortSettings.GetCompletionTime(Combo);
+                owner.AwardTime = WaterSortSettings.COMPLETIONTIME;
                 RemainingTime += owner.AwardTime;
                 BottleData replacement = m_generator.CreateReplacement(m_bottles, Score, m_activeCommands);
                 replacement.LocalPos = bottle.LocalPos;
@@ -238,10 +232,8 @@ namespace Game.WaterSortPuzzle
             }
             if (command.CompletionAwarded)
             {
+                SortedBottleCount--;
                 Score -= command.AwardScore;
-                // 按得分顺序恢复最近一次有效奖励的原到期时间，保留并行命令的奖励。
-                if (command.ComboID == m_comboID && m_comboAwards.Remove(command))
-                    UpdateComboWindow();
                 RemainingTime = Math.Max(0f, RemainingTime - command.AwardTime);
             }
             if (ReverseRemaining > 0)
@@ -253,17 +245,14 @@ namespace Game.WaterSortPuzzle
             return true;
         }
 
-        /// <summary>更新限时和连击窗口。</summary>
+        /// <summary>累计关卡用时并推进无尽倒计时，到时结束本局。</summary>
         /// <param name="deltaTime">本帧经过的秒数。</param>
         public void Tick(float deltaTime)
         {
             if (IsStopped || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
                 return;
-            m_elapsedTime += deltaTime;
-            int previousCombo = Combo;
-            UpdateComboWindow();
-            if (previousCombo != Combo)
-                ScoreChanged?.Invoke();
+            // 最后一帧只累计倒计时归零前的时间；加时和撤销不改动实际耗时。
+            ElapsedSeconds += IsInfinity ? Math.Min(deltaTime, RemainingTime) : deltaTime;
             if (IsInfinity)
             {
                 RemainingTime = Math.Max(0f, RemainingTime - deltaTime);
@@ -323,26 +312,6 @@ namespace Game.WaterSortPuzzle
                 return;
             DecrementCount(m_incomingCounts, command.Target);
             DecrementCount(m_outgoingCounts, command.Source);
-        }
-
-        private void UpdateComboWindow()
-        {
-            if (m_comboAwards.Count > 0)
-            {
-                PourCommand lastAward = m_comboAwards[m_comboAwards.Count - 1];
-                double remainingTime = lastAward.ComboDeadline - m_elapsedTime;
-                if (remainingTime > 0d)
-                {
-                    Combo = m_comboAwards.Count;
-                    ComboWindow = lastAward.ComboWindow;
-                    ComboRemainingTime = (float)remainingTime;
-                    return;
-                }
-            }
-            m_comboAwards.Clear();
-            Combo = 0;
-            ComboWindow = WaterSortSettings.COMBOWINDOW;
-            ComboRemainingTime = 0f;
         }
 
         private PourCommand FindCompletionOwner(BottleData bottle)

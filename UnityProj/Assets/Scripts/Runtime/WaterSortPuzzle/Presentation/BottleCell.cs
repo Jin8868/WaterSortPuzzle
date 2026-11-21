@@ -17,19 +17,17 @@ namespace Game.WaterSortPuzzle
         private const float MOUTHHEIGHT = 171f; // 瓶口相对瓶身中心的高度。
         private const float MOUTHEDGE = 25f; // 瓶口边缘相对中心的宽度。
         private const float STREAMGAP = 84f; // 倒水时两瓶瓶口的垂直距离。
+        private static readonly Vector2 m_streamStartOffset = new Vector2(6f, 4f); // 棋盘坐标中的出水口微调量。
         private const float OFFSCREEN = 2600f; // 屏外换瓶起点及终点的横坐标幅度。
 
         private readonly HashSet<PourCommand> m_waiting = new HashSet<PourCommand>(); // 已预占但尚未接水。
         private readonly HashSet<PourCommand> m_receiving = new HashSet<PourCommand>(); // 已插层且正在接水。
-        private readonly RawImage[] m_bubbles = new RawImage[4]; // 接水时复用的气泡。
         private WaterSortPuzzleController m_controller; // 当前会话。
         private BottleLiquidView m_liquid; // 瓶内液体渲染。
         private RectTransform m_rect; // 瓶子布局及旋转根节点。
-        private RectTransform m_mouth; // 水流对齐点。
         private RectTransform m_cap; // 完成时落下的瓶盖。
         private Vector2 m_capHome; // 瓶盖原始位置。
         private GameObject m_selection; // 瓶子外圈选中高亮。
-        private Texture2D m_bubbleTexture; // 可复用的气泡圆纹。
         private AudioSource m_pourAudio; // 当前瓶的独立倒水声。
         private AudioClip m_pourClip; // 循环的程序水声。
         private PourCommand m_outgoing; // 当前源瓶命令。
@@ -42,12 +40,13 @@ namespace Game.WaterSortPuzzle
         private float m_fill; // 当前显示的实数层数。
         private float m_finalFill; // 倒完后的显示层数。
         private int m_revealCount; // 揭晓动画开始前的隐藏层数。
-        private bool m_streamVisible; // 避免重复通知水流池。
+        private bool m_streamVisible; // 当前源瓶是否正在显示瓶间水流。
 
         public BottleData Data { get; private set; }
         public BottleData PourTarget => m_outgoing?.Target;
         public Color PourColor => WaterSortPalette.GetBody(m_outgoing?.Color ?? 0);
-        public RectTransform WaterFallHangPoint => m_mouth;
+        public Vector3 WaterFallPosition => m_rect.TransformPoint(GetMouthOffset())
+            + m_rect.parent.TransformVector(m_streamStartOffset * m_rect.localScale.x);
 
         public event Action<BottleCell, bool> WaterFallChanged;
         public event Action<BottleCell> Released;
@@ -154,8 +153,6 @@ namespace Game.WaterSortPuzzle
             m_cap = (RectTransform)transform.Find("go_top");
             m_capHome = m_cap.anchoredPosition;
             transform.Find("go_bottle").GetComponent<Image>().raycastTarget = true;
-            m_mouth = (RectTransform)new GameObject("WaterFallHangPoint", typeof(RectTransform)).transform;
-            m_mouth.SetParent(m_rect, false);
             SetAngle(0f);
         }
 
@@ -197,8 +194,6 @@ namespace Game.WaterSortPuzzle
             Unbind();
             if (m_pourClip != null)
                 Destroy(m_pourClip);
-            if (m_bubbleTexture != null)
-                Destroy(m_bubbleTexture);
         }
 
         private void HandleSelection(BottleData selected)
@@ -245,6 +240,7 @@ namespace Game.WaterSortPuzzle
             {
                 m_waiting.Remove(command);
                 m_receiving.Add(command);
+                m_liquid.SetBubbles(true);
                 m_liquid.RefreshColors(Data);
                 m_liquid.SetWave(true);
                 m_liquid.SetHighlight(false);
@@ -376,21 +372,17 @@ namespace Game.WaterSortPuzzle
                 return;
 
             SetFill(Mathf.MoveTowards(m_fill, Data.Colors.Count, FILLRATE * m_receiving.Count * deltaTime));
-            if (m_fill >= 1f)
-                UpdateBubbles();
-            else
-                HideBubbles();
         }
 
         private bool UpdateReceivingEffects()
         {
             bool isReceiving = m_receiving.Count > 0;
             m_liquid.SetWave(isReceiving);
+            m_liquid.SetBubbles(isReceiving);
             m_liquid.SetHighlight(!isReceiving);
             if (!isReceiving)
             {
                 SetFill(Data.Colors.Count);
-                HideBubbles();
             }
             return isReceiving || m_waiting.Count > 0;
         }
@@ -463,7 +455,7 @@ namespace Game.WaterSortPuzzle
         {
             // 逆推瓶身位置，让旋转中的出水点固定在目标瓶口正上方。
             BottleData target = m_outgoing.Target;
-            Vector2 mouthOffset = m_rect.localRotation * m_mouth.localPosition;
+            Vector2 mouthOffset = m_rect.localRotation * GetMouthOffset();
             Vector2 destination = target.LocalPos + Vector2.up * (MOUTHHEIGHT + STREAMGAP) * target.LocalScale;
             return destination - mouthOffset * Data.LocalScale;
         }
@@ -473,8 +465,12 @@ namespace Game.WaterSortPuzzle
             m_angle = angle;
             m_rect.localRotation = Quaternion.Euler(0f, 0f, angle);
             m_liquid.SetRotation(angle);
-            float edge = angle == 0f ? 0f : -Mathf.Sign(angle) * MOUTHEDGE;
-            m_mouth.anchoredPosition = new Vector2(edge, MOUTHHEIGHT);
+        }
+
+        private Vector3 GetMouthOffset()
+        {
+            float edge = m_angle == 0f ? 0f : -Mathf.Sign(m_angle) * MOUTHEDGE;
+            return new Vector3(edge, MOUTHHEIGHT, 0f);
         }
 
         private void ApplyHome()
@@ -517,7 +513,15 @@ namespace Game.WaterSortPuzzle
                 return;
 
             m_streamVisible = visible;
+            if (!visible && m_liquid != null)
+                m_liquid.ClearStream();
             WaterFallChanged?.Invoke(this, visible);
+        }
+
+        internal void RefreshStream(BottleCell target)
+        {
+            Vector3 surface = target.m_liquid.GetReceivingSurface(target.m_fill);
+            m_liquid.SetStream(WaterFallPosition, surface, PourColor);
         }
 
         private void ClearPourEffects()
@@ -526,69 +530,11 @@ namespace Game.WaterSortPuzzle
             if (m_liquid != null)
             {
                 m_liquid.SetWave(false);
+                m_liquid.SetBubbles(false);
                 m_liquid.SetHighlight(true);
             }
-            HideBubbles();
             if (m_pourAudio != null)
                 m_pourAudio.Stop();
-        }
-
-        private void UpdateBubbles()
-        {
-            if (m_bubbleTexture == null)
-                CreateBubbles();
-
-            // 气泡从液面下方升起，接近液面时淡出。
-            for (int index = 0; index < m_bubbles.Length; index++)
-            {
-                RawImage bubble = m_bubbles[index];
-                float phase = Mathf.Repeat(Time.unscaledTime * 2.4f + index * 0.25f, 1f);
-                float depth = Mathf.Lerp(55f, 8f, phase);
-                float surface = -171f + 321f * m_fill / BottleData.CAPACITY;
-                float horizontal = (index - 1.5f) * 12f + Mathf.Sin(phase * Mathf.PI) * 5f;
-                bubble.rectTransform.anchoredPosition = new Vector2(horizontal, surface - depth);
-                bubble.rectTransform.localScale = Vector3.one * Mathf.Lerp(0.55f, 1.15f, phase);
-                bubble.color = new Color(1f, 1f, 1f, Mathf.Sin(phase * Mathf.PI) * 0.65f);
-                bubble.gameObject.SetActive(true);
-            }
-        }
-
-        private void CreateBubbles()
-        {
-            const int SIZE = 16;
-            m_bubbleTexture = new Texture2D(SIZE, SIZE, TextureFormat.RGBA32, false);
-            m_bubbleTexture.name = "WaterSortBubble";
-
-            // 同瓶的气泡共用一张圆环纹理，保证低透明度下仍有清晰边缘。
-            for (int row = 0; row < SIZE; row++)
-            {
-                for (int column = 0; column < SIZE; column++)
-                {
-                    Vector2 offset = new Vector2(column - 7.5f, row - 7.5f);
-                    float opacity = 1f - Mathf.Clamp01(Mathf.Abs(offset.magnitude - 5.9f) / 1.5f);
-                    m_bubbleTexture.SetPixel(column, row, new Color(1f, 1f, 1f, opacity));
-                }
-            }
-            m_bubbleTexture.Apply(false, true);
-
-            for (int index = 0; index < m_bubbles.Length; index++)
-            {
-                RawImage bubble = new GameObject("WaterBubble", typeof(RawImage)).GetComponent<RawImage>();
-                bubble.rectTransform.SetParent(m_rect, false);
-                bubble.rectTransform.sizeDelta = Vector2.one * (12f + index * 2f);
-                bubble.raycastTarget = false;
-                bubble.texture = m_bubbleTexture;
-                m_bubbles[index] = bubble;
-            }
-        }
-
-        private void HideBubbles()
-        {
-            for (int index = 0; index < m_bubbles.Length; index++)
-            {
-                if (m_bubbles[index] != null)
-                    m_bubbles[index].gameObject.SetActive(false);
-            }
         }
 
         private void PlayPourSound()

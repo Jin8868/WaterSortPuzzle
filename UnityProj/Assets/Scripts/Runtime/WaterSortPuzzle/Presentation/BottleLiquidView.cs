@@ -4,10 +4,11 @@ using UnityEngine.UI;
 namespace Game.WaterSortPuzzle
 {
     [RequireComponent(typeof(Image))]
-    public sealed class BottleLiquidView : MonoBehaviour
+    public sealed class BottleLiquidView : BaseMeshEffect
     {
         private const float WAVEAMPLITUDE = 0.01f; // 倒水时的波纹振幅。
         private const float HIGHLIGHTHEIGHT = 0.02f; // 静止液面的高光厚度。
+        private const float STREAMHALFWIDTH = 4f; // 瓶子局部坐标中的水流半宽。
         private static readonly int[] m_layerColorIDs =
         {
             Shader.PropertyToID("_Color1"),
@@ -23,9 +24,14 @@ namespace Game.WaterSortPuzzle
         private static readonly int m_hiddenCountID = Shader.PropertyToID("_TexLayerCount"); // 问号层数属性。
         // 最上方问号层的揭晓进度属性。
         private static readonly int m_revealProgressID = Shader.PropertyToID("_TexLayerSwitchProgress");
+        private static readonly int m_bubblesID = Shader.PropertyToID("_ShowBubbles"); // 接水气泡开关。
         private Image m_image; // 使用瓶身内部轮廓的液体图像。
         private Material m_sharedMaterial; // 预制体上指定的材质模板。
         private Material m_material; // 当前瓶子独占的材质实例。
+        private Vector2 m_streamStart; // 出水口在液体图像上的局部位置。
+        private Vector2 m_streamEnd; // 目标液面在源瓶液体图像上的局部位置。
+        private Color32 m_streamColor; // 当前倒出水层的颜色。
+        private bool m_drawStream; // 当前网格是否包含瓶间水流。
 
         /// <summary>按瓶子数据同步各层水体颜色、液面颜色与隐藏层数。</summary>
         /// <param name="bottle">当前瓶子的数据。</param>
@@ -79,8 +85,71 @@ namespace Game.WaterSortPuzzle
             SetFloat(m_revealProgressID, Mathf.Clamp01(revealProgress));
         }
 
-        private void OnDestroy()
+        /// <summary>在现有液体图像内显示接水气泡。</summary>
+        /// <param name="visible">是否正接收水层。</param>
+        public void SetBubbles(bool visible)
         {
+            SetFloat(m_bubblesID, visible ? 1f : 0f);
+        }
+
+        internal Vector3 GetReceivingSurface(float layers)
+        {
+            // 与液体 Shader 的瓶底、层高及中心线波纹相同，空瓶从瓶底开始接水。
+            const float BOTTOMUV = 0.05f;
+            const float FILLHEIGHT = 0.845f;
+            float surface = BOTTOMUV + FILLHEIGHT * layers / BottleData.CAPACITY;
+            if (layers > 0f)
+                surface += Mathf.Sin(Time.timeSinceLevelLoad * 3f) * WAVEAMPLITUDE;
+
+            Rect bounds = m_image.GetPixelAdjustedRect();
+            return transform.TransformPoint(new Vector2(bounds.center.x, bounds.yMin + bounds.height * surface));
+        }
+
+        /// <summary>将出水瓶口与接水瓶的液面连接起来。</summary>
+        /// <param name="start">出水口的世界坐标。</param>
+        /// <param name="end">接水瓶液面的世界坐标。</param>
+        /// <param name="color">倒出水层的颜色。</param>
+        public void SetStream(Vector3 start, Vector3 end, Color color)
+        {
+            m_streamStart = transform.InverseTransformPoint(start);
+            m_streamEnd = transform.InverseTransformPoint(end);
+            m_streamColor = color * graphic.color;
+            m_drawStream = true;
+            graphic.SetVerticesDirty();
+        }
+
+        /// <summary>从液体图像中移除瓶间水流。</summary>
+        public void ClearStream()
+        {
+            if (!m_drawStream)
+                return;
+
+            m_drawStream = false;
+            graphic.SetVerticesDirty();
+        }
+
+        /// <summary>倒水时在原有液体网格中追加连接出水口与目标液面的四边形。</summary>
+        /// <param name="vertices">当前图像生成的顶点和索引。</param>
+        public override void ModifyMesh(VertexHelper vertices)
+        {
+            if (!IsActive() || !m_drawStream)
+                return;
+
+            // 用瓶身纹理范围以外的 UV 标记水流，让它独立于瓶内遮罩和液面高度。
+            Vector2 side = Vector2.Perpendicular(m_streamEnd - m_streamStart).normalized * STREAMHALFWIDTH;
+            int first = vertices.currentVertCount;
+            Vector2 streamUV = new Vector2(2f, 0f);
+            vertices.AddVert(m_streamStart - side, m_streamColor, streamUV);
+            vertices.AddVert(m_streamStart + side, m_streamColor, streamUV);
+            vertices.AddVert(m_streamEnd + side, m_streamColor, streamUV);
+            vertices.AddVert(m_streamEnd - side, m_streamColor, streamUV);
+            vertices.AddTriangle(first, first + 1, first + 2);
+            vertices.AddTriangle(first, first + 2, first + 3);
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
             if (m_material == null)
                 return;
 
