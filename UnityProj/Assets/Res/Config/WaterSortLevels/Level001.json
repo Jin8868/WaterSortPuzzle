@@ -1,0 +1,15 @@
+{
+  "ID": 1,
+  "Name": "01",
+  "PrerequisiteID": 0,
+  "ReverseCount": 3,
+  "HintSteps": 3,
+  "MaxDurationSeconds": 300,
+  "ReverseColor": false,
+  "IsInfinity": false,
+  "Bottles": [
+    { "Colors": [1,2,1,2], "InvisibleCount": 0 },
+    { "Colors": [2,1,2,1], "InvisibleCount": 0 },
+    { "Colors": [], "InvisibleCount": 0 }
+  ]
+}

@@ -59,8 +59,9 @@ namespace Game
                 throw new InvalidOperationException("游戏入口需要业务初始化完成，且不能重复执行。");
             }
 
-            // 框架已完成 UI 根节点和业务定义初始化，首屏直接打开选关预制。
+            // 关卡资源全部校验成功后才打开首屏，选关界面直接使用已加载的目录。
             m_hasStarted = true;
+            await WaterSortLevelCatalog.LoadAsync(cancellationToken);
             await WaterSortNavigation.StartAsync(cancellationToken);
             loadingSession.Report(1f);
         }
@@ -77,6 +78,7 @@ namespace Game
             }
             finally
             {
+                WaterSortLevelCatalog.Unload();
                 await m_startupPipeline.ShutdownAsync();
             }
         }

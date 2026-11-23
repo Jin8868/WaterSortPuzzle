@@ -1,0 +1,22 @@
+{
+  "ID": 7,
+  "Name": "07",
+  "PrerequisiteID": 6,
+  "ReverseCount": 5,
+  "HintSteps": 3,
+  "MaxDurationSeconds": 300,
+  "ReverseColor": false,
+  "IsInfinity": false,
+  "Bottles": [
+    { "Colors": [6,4,3,6], "InvisibleCount": 0 },
+    { "Colors": [1,5,2,7], "InvisibleCount": 0 },
+    { "Colors": [2,7,4,1], "InvisibleCount": 0 },
+    { "Colors": [7,6,3,3], "InvisibleCount": 0 },
+    { "Colors": [5,1,1,1], "InvisibleCount": 0 },
+    { "Colors": [2,4,5,7], "InvisibleCount": 0 },
+    { "Colors": [6,4,3,2], "InvisibleCount": 0 },
+    { "Colors": [5,1,1,1], "InvisibleCount": 3 },
+    { "Colors": [], "InvisibleCount": 0 },
+    { "Colors": [], "InvisibleCount": 0 }
+  ]
+}

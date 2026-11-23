@@ -1,0 +1,18 @@
+{
+  "ID": 4,
+  "Name": "04",
+  "PrerequisiteID": 3,
+  "ReverseCount": 3,
+  "HintSteps": 3,
+  "MaxDurationSeconds": 300,
+  "ReverseColor": false,
+  "IsInfinity": false,
+  "Bottles": [
+    { "Colors": [1,2,3,4], "InvisibleCount": 0 },
+    { "Colors": [1,2,4,3], "InvisibleCount": 0 },
+    { "Colors": [2,1,3,4], "InvisibleCount": 0 },
+    { "Colors": [2,1,4,3], "InvisibleCount": 0 },
+    { "Colors": [], "InvisibleCount": 0 },
+    { "Colors": [], "InvisibleCount": 0 }
+  ]
+}

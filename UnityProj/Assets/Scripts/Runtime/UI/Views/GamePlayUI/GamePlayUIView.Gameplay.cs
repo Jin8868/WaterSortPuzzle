@@ -25,7 +25,8 @@ namespace Game.UI
         private bool m_navigating; // 是否正在返回选关页。
         private int m_navigationVersion; // 避免旧的跳转完成后影响复用页面。
         private int m_lastReverse = int.MinValue; // 上次显示的撤销次数。
-        private int m_lastTimerSecond = -1; // 上次显示的无尽倒计时秒数。
+        private int m_lastTimerSecond = -1; // 上次显示的倒计时秒数。
+        [SerializeField] private UnityEngine.UI.Text m_resultTitle; // 结算面板上已有的标题。
 
         private bool CanPlay => m_playing && !m_navigating && m_confirmationRequest == null && !m_controller.IsStopped;
 
@@ -58,6 +59,7 @@ namespace Game.UI
             m_controller.LevelLoaded += HandleLevelLoaded;
             m_controller.BottleReplaced += HandleBottleReplaced;
             m_controller.Completed += HandleCompleted;
+            m_controller.TimedOut += HandleTimedOut;
             m_controller.BeginPour += HandleHintPourStarted;
             m_controller.FinishPour += HandleHintPourFinished;
             m_controller.SyncData += HandleHintUndo;
@@ -100,6 +102,7 @@ namespace Game.UI
             m_controller.LevelLoaded -= HandleLevelLoaded;
             m_controller.BottleReplaced -= HandleBottleReplaced;
             m_controller.Completed -= HandleCompleted;
+            m_controller.TimedOut -= HandleTimedOut;
             m_controller.BeginPour -= HandleHintPourStarted;
             m_controller.FinishPour -= HandleHintPourFinished;
             m_controller.SyncData -= HandleHintUndo;
@@ -121,7 +124,7 @@ namespace Game.UI
 
             float deltaTime = Time.unscaledDeltaTime;
             m_controller.Tick(deltaTime);
-            if (m_controller.IsInfinity && !m_controller.IsStopped)
+            if (!m_controller.IsStopped)
             {
                 int second = Mathf.CeilToInt(m_controller.RemainingTime);
                 if (second != m_lastTimerSecond)
@@ -247,7 +250,7 @@ namespace Game.UI
             BtnBack.interactable = canPlay;
             BtnReset.interactable = canPlay;
             BtnRetrun.interactable = canPlay && m_controller.CanReverse;
-            BtnHint.interactable = canPlay && !m_controller.IsInfinity && !m_hintsEnabled;
+            BtnHint.interactable = CanStartHints;
             BtnClose.interactable = m_playing && !m_navigating;
             BtnNext.interactable = BtnClose.interactable;
             if (m_lastReverse != m_controller.ReverseRemaining)
@@ -261,17 +264,21 @@ namespace Game.UI
         {
             if (m_controller.IsStopped)
             {
-                TxtLevelInfo.text = m_controller.IsInfinity ? m_controller.Score + "分" : "关卡完成";
-            }
-            else if (m_controller.IsInfinity)
-            {
-                m_lastTimerSecond = Mathf.CeilToInt(m_controller.RemainingTime);
-                TxtLevelInfo.text = m_lastTimerSecond + " 秒";
+                TxtLevelInfo.text = m_controller.IsInfinity ? m_controller.Score + "分" : GetResultTitle();
             }
             else
             {
-                TxtLevelInfo.text = GetHintLevelInfo();
+                m_lastTimerSecond = Mathf.CeilToInt(m_controller.RemainingTime);
+                string timer = $"{m_lastTimerSecond / 60:00}:{m_lastTimerSecond % 60:00}";
+                TxtLevelInfo.text = m_controller.IsInfinity ? timer : GetHintLevelInfo() + "  " + timer;
             }
+        }
+
+        private string GetResultTitle()
+        {
+            if (m_controller.IsTimedOut)
+                return "超时失败";
+            return m_controller.IsInfinity ? "挑战结束" : "关卡完成";
         }
 
         private void HandleReverse()
@@ -379,24 +386,40 @@ namespace Game.UI
             ShowResult();
         }
 
+        private void HandleTimedOut()
+        {
+            InvalidateConfirmation();
+            if (m_controller.IsInfinity)
+                WaterSortProgress.RecordBestScore(m_controller.Score);
+            ShowResult();
+        }
+
         private void ShowResult()
         {
             // 结算时冻结三个数值，同一场游戏内重试的时间计入关卡耗时。
             int seconds = (int)m_controller.ElapsedSeconds;
+            m_resultTitle.text = GetResultTitle();
             TxtUseTime.text = $"{seconds / 60:00}:{seconds % 60:00}";
             TxtBottleNum.text = m_controller.SortedBottleCount.ToString();
             TxtRestNum.text = m_controller.ResetCount.ToString();
-            BtnNext.gameObject.SetActive(CanEnterNextLevel());
+            BtnNext.gameObject.SetActive(GetNextLevelID() > 0);
             GoResult.SetActive(true);
             RefreshLevelInfo();
             RefreshButtons();
         }
 
-        private bool CanEnterNextLevel()
+        private int GetNextLevelID()
         {
-            int nextID = m_controller.LevelID + 1;
-            return m_controller.IsCompleted && !m_controller.IsInfinity && WaterSortProgress.IsUnlocked(nextID)
-                && !WaterSortLevelCatalog.Get(nextID).IsInfinity;
+            if (!m_controller.IsCompleted || m_controller.IsInfinity)
+                return 0;
+
+            // 旧版无尽关保留存档编号，后续追加的普通关仍可通过“下一关”进入。
+            for (int id = m_controller.LevelID + 1; id <= WaterSortLevelCatalog.Count; id++)
+            {
+                if (!WaterSortLevelCatalog.Get(id).IsInfinity && WaterSortProgress.IsUnlocked(id))
+                    return id;
+            }
+            return 0;
         }
 
         private void HandleResultClose()
@@ -406,7 +429,11 @@ namespace Game.UI
 
         private void HandleNextLevel()
         {
-            if (GoResult.activeSelf && !m_navigating && CanEnterNextLevel()) EnterLevel(m_controller.LevelID + 1);
+            if (!GoResult.activeSelf || m_navigating)
+                return;
+            int nextID = GetNextLevelID();
+            if (nextID > 0)
+                EnterLevel(nextID);
         }
 
         private void SettleInfinity()

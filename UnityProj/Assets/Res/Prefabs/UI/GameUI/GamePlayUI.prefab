@@ -2051,6 +2051,7 @@ MonoBehaviour:
   m_txtTiems: {fileID: 6517806466217409385}
   m_goBottle: {fileID: 866124988057358280}
   m_goResult: {fileID: 1492917114261267977}
+  m_resultTitle: {fileID: 18416759326363390}
   m_btnClose: {fileID: 2945142834942559274}
   m_btnHint: {fileID: 4850970251734710635}
   m_btnNext: {fileID: 7062005017539381162}

@@ -16,6 +16,7 @@ namespace Game.WaterSortPuzzle
             new Dictionary<BottleData, PourCommand>();
         private BottleData m_selectedBottle; // 当前选中源瓶。
         private bool m_resetting; // 阻止重置期间事件重新发起命令。
+        private int m_timeLimit; // 配置的整关耗时上限，重置也计入累计用时。
 
         public event Action<PourCommand> BeginPour;
         public event Action<PourCommand> DoPour;
@@ -30,6 +31,7 @@ namespace Game.WaterSortPuzzle
         public event Action LevelLoaded;
         public event Action Stopped;
         public event Action Completed;
+        public event Action TimedOut;
 
         public IReadOnlyList<BottleData> Bottles => m_bottles;
         public BottleData SelectedBottle => m_selectedBottle;
@@ -44,9 +46,10 @@ namespace Game.WaterSortPuzzle
         public bool CanReverse => !IsStopped && !m_resetting && ReverseRemaining != 0 && m_commands.Count > 0;
         public bool IsStopped { get; private set; }
         public bool IsCompleted { get; private set; }
+        public bool IsTimedOut { get; private set; }
 
         /// <summary>加载配置关卡并使旧命令失效。</summary>
-        /// <param name="levelID">一到十四的关卡编号。</param>
+        /// <param name="levelID">关卡配置编号。</param>
         /// <exception cref="ArgumentOutOfRangeException">关卡编号超出范围。</exception>
         public void LoadLevel(int levelID)
         {
@@ -73,15 +76,19 @@ namespace Game.WaterSortPuzzle
                 m_generator.FillInfinityTemplate(m_bottles);
             SortedBottleCount = 0;
             Score = 0;
-            RemainingTime = IsInfinity ? WaterSortSettings.DURATION : 0f;
+            m_timeLimit = level.MaxDurationSeconds;
+            float availableTime = (float)Math.Max(0d, m_timeLimit - ElapsedSeconds);
+            RemainingTime = IsInfinity ? Math.Min(WaterSortSettings.DURATION, availableTime) : availableTime;
             ReverseRemaining = level.ReverseCount;
             IsStopped = false;
             IsCompleted = false;
+            IsTimedOut = false;
             SetSelection(null);
             m_resetting = false;
             LevelLoaded?.Invoke();
             ScoreChanged?.Invoke();
             TimeChanged?.Invoke();
+            CheckCompleted();
         }
 
         /// <summary>重新加载当前关卡。</summary>
@@ -192,6 +199,8 @@ namespace Game.WaterSortPuzzle
             if (IsInfinity)
             {
                 owner.AwardTime = WaterSortSettings.COMPLETIONTIME;
+                float availableTime = (float)Math.Max(0d, m_timeLimit - ElapsedSeconds);
+                owner.AwardTime = Math.Min(owner.AwardTime, Math.Max(0f, availableTime - RemainingTime));
                 RemainingTime += owner.AwardTime;
                 BottleData replacement = m_generator.CreateReplacement(m_bottles, Score, m_activeCommands);
                 replacement.LocalPos = bottle.LocalPos;
@@ -245,19 +254,25 @@ namespace Game.WaterSortPuzzle
             return true;
         }
 
-        /// <summary>累计关卡用时并推进无尽倒计时，到时结束本局。</summary>
+        /// <summary>推进关卡倒计时，达到配置的耗时上限时结算失败。</summary>
         /// <param name="deltaTime">本帧经过的秒数。</param>
         public void Tick(float deltaTime)
         {
             if (IsStopped || deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
                 return;
-            // 最后一帧只累计倒计时归零前的时间；加时和撤销不改动实际耗时。
-            ElapsedSeconds += IsInfinity ? Math.Min(deltaTime, RemainingTime) : deltaTime;
-            if (IsInfinity)
+            // 最后一次倒水已提交时，封瓶表现耗时不影响通关判定。
+            if (!IsInfinity && m_completionTokens.Count > 0 && IsBoardSorted())
+                return;
+
+            double available = Math.Max(0d, m_timeLimit - ElapsedSeconds);
+            double remaining = IsInfinity ? Math.Min(available, RemainingTime) : available;
+            ElapsedSeconds += Math.Min(deltaTime, remaining);
+            RemainingTime = (float)Math.Max(0d, remaining - deltaTime);
+            if (RemainingTime <= 0f)
             {
-                RemainingTime = Math.Max(0f, RemainingTime - deltaTime);
-                if (RemainingTime == 0f)
-                    Complete();
+                IsTimedOut = true;
+                Stop();
+                TimedOut?.Invoke();
             }
             TimeChanged?.Invoke();
         }
@@ -333,15 +348,21 @@ namespace Game.WaterSortPuzzle
 
         private void CheckCompleted()
         {
-            if (IsInfinity || IsStopped || m_activeCommands.Count != 0 || m_completionTokens.Count != 0)
-                return;
+            if (!IsInfinity && !IsStopped && m_completionTokens.Count == 0 && IsBoardSorted())
+                Complete();
+        }
+
+        private bool IsBoardSorted()
+        {
+            if (m_activeCommands.Count != 0)
+                return false;
             for (int index = 0; index < m_bottles.Count; index++)
             {
                 BottleData bottle = m_bottles[index];
                 if (!bottle.IsEmpty() && !bottle.IsFinish())
-                    return;
+                    return false;
             }
-            Complete();
+            return true;
         }
 
         private void Complete()
