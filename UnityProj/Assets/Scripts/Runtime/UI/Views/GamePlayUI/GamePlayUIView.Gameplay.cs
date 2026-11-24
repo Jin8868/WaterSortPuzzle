@@ -11,8 +11,9 @@ namespace Game.UI
 {
     public sealed partial class GamePlayUIView
     {
-        private const float REFERENCEWIDTH = 1760f;
-        private const float REFERENCEHEIGHT = 840f;
+        private const float BOTTLESIDEREACH = 380f; // 横向倾倒时，相对目标瓶中心的最大距离。
+        private const float BOTTLEUPPERREACH = 640f; // 顶排倒水时，相对目标瓶中心的最大高度。
+        private const float BOTTLELOWERREACH = 220f; // 瓶身旋转时，相对所在行中心的最大下探距离。
 
         private readonly Dictionary<BottleData, BottleCell> m_cells = new Dictionary<BottleData, BottleCell>(); // 瓶子映射。
         private readonly List<BottleCell> m_liveCells = new List<BottleCell>(); // 包括正在滑出的实例。
@@ -26,6 +27,7 @@ namespace Game.UI
         private int m_navigationVersion; // 避免旧的跳转完成后影响复用页面。
         private int m_lastReverse = int.MinValue; // 上次显示的撤销次数。
         private int m_lastTimerSecond = -1; // 上次显示的倒计时秒数。
+        private Vector2 m_boardLayoutSize; // 含选中、封瓶和倒水动画的棋盘布局尺寸。
         [SerializeField] private UnityEngine.UI.Text m_resultTitle; // 结算面板上已有的标题。
 
         private bool CanPlay => m_playing && !m_navigating && m_confirmationRequest == null && !m_controller.IsStopped;
@@ -33,6 +35,7 @@ namespace Game.UI
         internal async UniTask PrepareGameplayAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (m_audioScope == null) await PrepareAudioAsync(cancellationToken);
             if (m_bottlePrefabHandle != null)
                 return;
 
@@ -98,6 +101,7 @@ namespace Game.UI
 
             // 先终止命令，再回收视图和解除本局的事件订阅。
             m_playing = false;
+            StopGameplayAudio();
             m_navigationVersion++;
             m_navigating = false;
             InvalidateConfirmation();
@@ -132,6 +136,7 @@ namespace Game.UI
             if (!m_controller.IsStopped)
             {
                 int second = Mathf.CeilToInt(m_controller.RemainingTime);
+                UpdateCountdownAudio(second);
                 if (second != m_lastTimerSecond)
                     RefreshLevelInfo();
             }
@@ -148,6 +153,9 @@ namespace Game.UI
 
         private void LateUpdate()
         {
+            if (m_playing)
+                FitBoard();
+
             RefreshPendingHint();
             // 等所有瓶子更新完倾角和接水动画，再按本帧液面连接水流。
             foreach (BottleCell source in m_liveCells)
@@ -202,25 +210,29 @@ namespace Game.UI
 
         private void HandleLevelLoaded()
         {
+            StartGameplayAudio();
             InvalidateConfirmation();
             GoResult.SetActive(false);
             ReleaseAll();
 
-            // 按现有棋盘容器的可用尺寸调整瓶子数据，保留容器在预制体中的布局。
-            RectTransform board = (RectTransform)GoBottle.transform;
-            Vector2 size = board.rect.size;
-            float boardScale = Mathf.Min(size.x / REFERENCEWIDTH, size.y / REFERENCEHEIGHT);
-            if (boardScale <= 0f)
-                boardScale = 1f;
-
             IReadOnlyList<BottleData> bottles = m_controller.Bottles;
             WaterSortLayout.Apply(bottles);
-            float centerY = (bottles[0].LocalPos.y + bottles[bottles.Count - 1].LocalPos.y) * 0.5f;
-            for (int index = 0; index < bottles.Count; index++)
+
+            // 将顶部倒水轨迹和瓶身旋转范围计入布局，为工具栏及计时区保留空间。
+            float bottleScale = bottles[0].LocalScale;
+            float top = bottles[0].LocalPos.y + BOTTLEUPPERREACH * bottleScale;
+            float bottom = bottles[bottles.Count - 1].LocalPos.y - BOTTLELOWERREACH * bottleScale;
+            float halfWidth = 0f;
+            foreach (BottleData bottle in bottles)
+                halfWidth = Mathf.Max(halfWidth, Mathf.Abs(bottle.LocalPos.x) + BOTTLESIDEREACH * bottleScale);
+
+            m_boardLayoutSize = new Vector2(halfWidth * 2f, top - bottom);
+            FitBoard();
+
+            float centerY = (top + bottom) * 0.5f;
+            foreach (BottleData bottle in bottles)
             {
-                BottleData bottle = bottles[index];
-                bottle.LocalPos = (bottle.LocalPos - Vector2.up * centerY) * boardScale;
-                bottle.LocalScale *= boardScale;
+                bottle.LocalPos -= Vector2.up * centerY;
                 RentBottle(bottle).PlaySlideIn(true);
             }
 
@@ -229,6 +241,21 @@ namespace Game.UI
             m_lastReverse = int.MinValue;
             RefreshLevelInfo();
             RefreshButtons();
+        }
+
+        private void FitBoard()
+        {
+            if (m_boardLayoutSize == Vector2.zero)
+                return;
+
+            // 安全区变化时统一缩放棋盘，活动瓶子的本地位置和动画进度保持连续。
+            RectTransform board = (RectTransform)GoBottle.transform;
+            Vector2 available = board.rect.size;
+            if (available.x <= 0f || available.y <= 0f) return;
+            float scale = Mathf.Min(available.x / m_boardLayoutSize.x, available.y / m_boardLayoutSize.y);
+            scale = Mathf.Clamp(scale, 0.001f, 1f);
+            if (!Mathf.Approximately(board.localScale.x, scale))
+                board.localScale = new Vector3(scale, scale, 1f);
         }
 
         private void HandleBottleReplaced(BottleData previous, BottleData replacement)
@@ -269,13 +296,18 @@ namespace Game.UI
         {
             if (m_controller.IsStopped)
             {
-                TxtLevelInfo.text = m_controller.IsInfinity ? m_controller.Score + "分" : GetResultTitle();
+                string result = m_controller.IsInfinity ? m_controller.Score + " 分" : GetResultTitle();
+                TxtLevelInfo.text = $"<size=54><b>{result}</b></size>";
             }
             else
             {
-                m_lastTimerSecond = Mathf.CeilToInt(m_controller.RemainingTime);
+                // 大号数字占据独立一行，最后五秒的颜色与逐秒提示同步。
+                m_lastTimerSecond = Mathf.Max(0, Mathf.CeilToInt(m_controller.RemainingTime));
                 string timer = $"{m_lastTimerSecond / 60:00}:{m_lastTimerSecond % 60:00}";
-                TxtLevelInfo.text = m_controller.IsInfinity ? timer : GetHintLevelInfo() + "  " + timer;
+                string timerColor = m_lastTimerSecond <= COUNTDOWNSECONDS ? "#FF9081" : "#FFD786";
+                string timerLine = $"<size=64><b><color={timerColor}>{timer}</color></b></size>";
+                string levelInfo = m_controller.IsInfinity ? "无尽模式" : GetHintLevelInfo();
+                TxtLevelInfo.text = timerLine + "\n" + levelInfo;
             }
         }
 
@@ -401,6 +433,7 @@ namespace Game.UI
 
         private void ShowResult()
         {
+            StopGameplayAudio();
             // 结算时冻结三个数值，同一场游戏内重试的时间计入关卡耗时。
             int seconds = (int)m_controller.ElapsedSeconds;
             m_resultTitle.text = GetResultTitle();
@@ -472,6 +505,8 @@ namespace Game.UI
         private void OnDestroy()
         {
             CloseSession();
+            m_audioScope?.Dispose();
+            m_audioScope = null;
             m_bottlePrefabHandle?.Dispose();
             m_bottlePrefabHandle = null;
         }

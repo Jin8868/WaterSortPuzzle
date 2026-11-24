@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Game.WaterSortPuzzle;
+using UnityEngine.UI;
 
 namespace Game.UI
 {
@@ -13,10 +14,12 @@ namespace Game.UI
         private WaterSortSolution m_hintPlan; // 对应当前瓶子顺序的最短路径。
         private int m_hintIndex; // 路径中下一次尚未完成的倒水。
         private int m_hintRemaining; // 本轮剩余提示步数，-1 表示持续引导至通关。
+        private int m_hintsUsed; // 本轮已完成的提示步数，重新求解时保留。
         private bool m_hintPending; // 等待瓶子归位后更新提示。
         private PourCommand m_guidedPour; // 按实际显示的指引发起、尚未提交的倒水。
         private CancellationTokenSource m_hintSearch; // 正在后台搜索或等待退出的任务。
         private string m_hintFeedback; // 当前局面的搜索失败说明。
+        private Text m_hintLabel; // 现有提示按钮的文字节点。
 
         private int HintSteps => WaterSortLevelCatalog.Get(m_controller.LevelID).HintSteps;
         private bool CanStartHints =>
@@ -30,8 +33,10 @@ namespace Game.UI
                 return;
 
             m_hintRemaining = HintSteps;
+            m_hintsUsed = 0;
             m_hintPending = true;
             m_hintFeedback = null;
+            UpdateHintLabel("提示\n等待归位");
             RefreshLevelInfo();
             RefreshButtons();
         }
@@ -40,17 +45,15 @@ namespace Game.UI
         {
             if (m_hintFeedback != null)
                 return m_levelLabel + "\n" + m_hintFeedback;
-            if (m_hintRemaining == 0)
-                return m_levelLabel;
-            if (m_hintPlan == null)
-                return m_levelLabel + "\n正在计算最短路线";
-            if (m_hintPending)
-                return m_levelLabel;
+            return m_levelLabel;
+        }
 
-            // 描边标记两瓶，文字说明倒水方向。玩家可见编号从 1 开始。
-            var step = m_hintPlan.Steps[m_hintIndex];
-            return $"{m_levelLabel} · 剩 {m_hintPlan.MinimumSteps - m_hintIndex} 步\n" +
-                $"{step.SourceIndex + 1} 号瓶 → {step.TargetIndex + 1} 号瓶";
+        private void UpdateHintLabel(string label)
+        {
+            if (m_hintLabel == null)
+                m_hintLabel = BtnHint.GetComponentInChildren<Text>(true);
+            if (m_hintLabel != null)
+                m_hintLabel.text = label;
         }
 
         private void StopHints()
@@ -59,9 +62,11 @@ namespace Game.UI
             m_hintPending = false;
             m_hintPlan = null;
             m_hintIndex = 0;
+            m_hintsUsed = 0;
             m_guidedPour = null;
             m_hintFeedback = null;
             ClearHintMarkers();
+            UpdateHintLabel("提示");
         }
 
         private void ClearHintMarkers()
@@ -95,7 +100,7 @@ namespace Game.UI
 
             ClearHintMarkers();
             m_hintPending = true;
-            RefreshLevelInfo();
+            UpdateHintLabel("提示\n等待归位");
         }
 
         private void HandleHintPourFinished(PourCommand command)
@@ -107,13 +112,16 @@ namespace Game.UI
             m_guidedPour = null;
             if (m_hintRemaining > 0)
                 m_hintRemaining--;
+            m_hintsUsed++;
             m_hintIndex++;
             if (m_hintPlan != null && m_hintIndex == m_hintPlan.Steps.Count)
                 StopHints();
             else if (m_hintRemaining == 0)
+            {
                 m_hintPending = false;
+                UpdateHintLabel("提示");
+            }
 
-            RefreshLevelInfo();
             RefreshButtons();
         }
 
@@ -133,7 +141,7 @@ namespace Game.UI
             ClearHintMarkers();
             m_hintPlan = null;
             m_hintPending = true;
-            RefreshLevelInfo();
+            UpdateHintLabel("提示\n等待归位");
         }
 
         private void ClearHintFeedback()
@@ -165,10 +173,15 @@ namespace Game.UI
                 return;
             }
 
+            // 本轮提示总数受当前路线长度和剩余额度共同限制。
+            int remainingSteps = m_hintPlan.Steps.Count - m_hintIndex;
+            if (m_hintRemaining > 0)
+                remainingSteps = Math.Min(remainingSteps, m_hintRemaining);
+
             var step = m_hintPlan.Steps[m_hintIndex];
-            m_cells[bottles[step.SourceIndex]].SetHint(true);
+            m_cells[bottles[step.SourceIndex]].SetHint(true, isSource: true);
             m_cells[bottles[step.TargetIndex]].SetHint(true);
-            RefreshLevelInfo();
+            UpdateHintLabel($"提示 {m_hintsUsed + 1}/{m_hintsUsed + remainingSteps}\n闪烁 → 常亮");
         }
 
         private async UniTask SearchHintsAsync(IReadOnlyList<BottleData> bottles)
@@ -187,6 +200,7 @@ namespace Game.UI
             using var budget = new CancellationTokenSource(HINTSEARCHMILLISECONDS);
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(search.Token, budget.Token);
             m_hintSearch = search;
+            UpdateHintLabel("提示\n计算中");
             try
             {
                 await UniTask.SwitchToThreadPool();
@@ -199,7 +213,7 @@ namespace Game.UI
                     {
                         StopHints();
                         if (plan.MinimumSteps < 0)
-                            m_hintFeedback = "当前局面无解，可撤销或重置";
+                            m_hintFeedback = "无解，请撤销或重置";
                     }
                     else
                     {
@@ -216,7 +230,7 @@ namespace Game.UI
                 if (!search.IsCancellationRequested)
                 {
                     StopHints();
-                    m_hintFeedback = "求解超时，可再次点击提示";
+                    m_hintFeedback = "提示超时，请重试";
                     RefreshLevelInfo();
                 }
             }

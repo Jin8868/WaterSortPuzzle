@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{D2FFCCA1-8030-4F59-A180-BD02E45C2CAC}" SchemaVersion="133">
+	<Events>
+		<WorkUnit Name="Default Work Unit" ID="{D2FFCCA1-8030-4F59-A180-BD02E45C2CAC}" PersistMode="Standalone">
+			<ChildrenList>
+				<Event Name="Play_WaterSortBGM" ID="{A38AA7BE-5183-4CFA-BFA8-A15C4F829CBD}">
+					<ChildrenList>
+						<Action Name="" ID="{26781BCC-8B7B-436B-BC27-75268B1D4857}" ShortID="541375037">
+							<ReferenceList>
+								<Reference Name="Target">
+									<ObjectRef Name="WaterSortBGM" ID="{E5DF1C30-FABF-4AC2-8374-71E4952AEC8D}" WorkUnitID="{CC68799A-AC03-4986-B809-19492930435E}"/>
+								</Reference>
+							</ReferenceList>
+						</Action>
+					</ChildrenList>
+				</Event>
+				<Event Name="Play_WaterSortCountdown" ID="{D59593AA-A366-4BE3-A6C7-0FE51129CF80}">
+					<ChildrenList>
+						<Action Name="" ID="{A7662885-8803-4AF5-A082-D95DFDE57EB6}" ShortID="992303293">
+							<ReferenceList>
+								<Reference Name="Target">
+									<ObjectRef Name="WaterSortCountdown" ID="{7076579C-7B24-46CD-AEAC-DC93F2B2607B}" WorkUnitID="{CC68799A-AC03-4986-B809-19492930435E}"/>
+								</Reference>
+							</ReferenceList>
+						</Action>
+					</ChildrenList>
+				</Event>
+				<Event Name="Play_WaterSortPour" ID="{2662223F-AA71-4304-B4C3-0B4E0467C507}">
+					<ChildrenList>
+						<Action Name="" ID="{69A12490-B0F4-47D1-B916-296CF7787780}" ShortID="1006431018">
+							<ReferenceList>
+								<Reference Name="Target">
+									<ObjectRef Name="WaterSortPour" ID="{F5117A11-0145-4B84-B57A-C9CC875B4A21}" WorkUnitID="{CC68799A-AC03-4986-B809-19492930435E}"/>
+								</Reference>
+							</ReferenceList>
+						</Action>
+					</ChildrenList>
+				</Event>
+			</ChildrenList>
+		</WorkUnit>
+	</Events>
+</WwiseDocument>

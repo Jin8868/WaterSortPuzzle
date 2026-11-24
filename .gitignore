@@ -57,6 +57,21 @@ sysinfo.txt
 # Generated Luban enum schema. Enums.xlsx is the source of truth.
 /DesignData/Luban/Defines/GeneratedEnums.xml
 
+# Wwise authoring project sources for regenerating SoundBanks.
+/WwiseProj/WwiseAudio/**
+!/WwiseProj/WwiseAudio/**/
+!/WwiseProj/WwiseAudio/WwiseAudio.wproj
+# Work units used by the gameplay events and their routing and conversion dependencies.
+!/WwiseProj/WwiseAudio/Busses/Default Work Unit.wwu
+!/WwiseProj/WwiseAudio/Containers/Default Work Unit.wwu
+!/WwiseProj/WwiseAudio/Conversion Settings/Default Work Unit.wwu
+!/WwiseProj/WwiseAudio/Devices/Default Work Unit.wwu
+!/WwiseProj/WwiseAudio/Events/Default Work Unit.wwu
+!/WwiseProj/WwiseAudio/Game Parameters/Default Work Unit.wwu
+!/WwiseProj/WwiseAudio/Originals/SFX/WaterSort/CountdownTick.wav
+!/WwiseProj/WwiseAudio/Originals/SFX/WaterSort/Pour.wav
+!/WwiseProj/WwiseAudio/Originals/SFX/WaterSort/PuzzleBgm.wav
+
 # Wwise generated SoundBanks (regenerate with UnityProj/Tools/Wwise/GenerateSoundBanks.ps1)
 /WwiseProj/**/GeneratedSoundBanks/
 /UnityProj/Assets/StreamingAssets/Audio/GeneratedSoundBanks/
@@ -93,9 +108,6 @@ sysinfo.txt
 # Locally prepared Pulse test media; keep scripts and collection settings tracked
 /UnityProj/Assets/Res/Video/**/*.pulse
 /UnityProj/Assets/Res/Video/**/*.pulse.meta
-
-# Local Wwise test authoring project; existing tracked edits stay local.
-/WwiseProj/WwiseAudio/
 
 # Local synthetic video test folder metadata.
 /UnityProj/Assets/Res/Video/Synthetic.meta

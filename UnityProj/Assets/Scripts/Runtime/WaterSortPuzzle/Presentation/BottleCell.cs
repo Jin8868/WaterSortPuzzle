@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AlloyFramework.Audio;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -9,6 +10,7 @@ namespace Game.WaterSortPuzzle
     /// <summary>驱动单个瓶子的交互、水层和局部动画。</summary>
     public sealed class BottleCell : MonoBehaviour, IPointerClickHandler
     {
+        internal const string POUREVENT = "Play_WaterSortPour"; // Wwise 中的循环倒水事件。
         private const float FILLRATE = 8f; // 每秒变化的水层数。
         private const float TILTRATE = 600f; // 每秒可转过的角度。
         private const float TRAVELTIME = 0.24f; // 飞向目标及归位的秒数。
@@ -18,7 +20,7 @@ namespace Game.WaterSortPuzzle
         private const float MOUTHEDGE = 25f; // 瓶口边缘相对中心的宽度。
         private const float STREAMGAP = 84f; // 倒水时两瓶瓶口的垂直距离。
         private static readonly Vector2 m_streamStartOffset = new Vector2(6f, 4f); // 棋盘坐标中的出水口微调量。
-        private const float OFFSCREEN = 2600f; // 屏外换瓶起点及终点的横坐标幅度。
+        private const float SLIDEEDGEPADDING = 132f; // 换瓶滑动超出安全区的额外距离。
 
         private readonly HashSet<PourCommand> m_waiting = new HashSet<PourCommand>(); // 已预占但尚未接水。
         private readonly HashSet<PourCommand> m_receiving = new HashSet<PourCommand>(); // 已插层且正在接水。
@@ -29,8 +31,7 @@ namespace Game.WaterSortPuzzle
         private Vector2 m_capHome; // 瓶盖原始位置。
         private GameObject m_selection; // 瓶子外圈选中高亮。
         private BottleHintView m_hint; // 预制体中的提示描边。
-        private AudioSource m_pourAudio; // 当前瓶的独立倒水声。
-        private AudioClip m_pourClip; // 循环的程序水声。
+        private long m_pourPlayID; // 当前瓶的倒水播放请求，在回正或回收时停止。
         private PourCommand m_outgoing; // 当前源瓶命令。
         private PourCommand m_completion; // 当前完成动画的令牌。
         private Vector2 m_animationStart; // 移动或滑动的起点。
@@ -112,7 +113,7 @@ namespace Game.WaterSortPuzzle
             }
 
             m_elapsed = 0f;
-            m_animationStart = new Vector2(-OFFSCREEN, Data.LocalPos.y);
+            m_animationStart = new Vector2(-GetSlideEdge(), Data.LocalPos.y);
             m_rect.anchoredPosition = m_animationStart;
             Data.State = EBottleState.SlideIn;
         }
@@ -143,10 +144,11 @@ namespace Game.WaterSortPuzzle
                 m_controller.TrySelect(Data);
         }
 
-        internal void SetHint(bool visible)
+        internal void SetHint(bool visible, bool isSource = false)
         {
-            if (m_hint != null && m_hint.gameObject.activeSelf != visible)
-                m_hint.gameObject.SetActive(visible);
+            if (m_hint == null) return;
+            if (visible) m_hint.Show(isSource);
+            else m_hint.gameObject.SetActive(false);
         }
 
         private void InitializeVisuals()
@@ -202,8 +204,6 @@ namespace Game.WaterSortPuzzle
         private void OnDestroy()
         {
             Unbind();
-            if (m_pourClip != null)
-                Destroy(m_pourClip);
         }
 
         private void HandleSelection(BottleData selected)
@@ -415,7 +415,7 @@ namespace Game.WaterSortPuzzle
         private void UpdateSliding(float deltaTime)
         {
             bool isLeaving = Data.State == EBottleState.SlideOut;
-            Vector2 end = isLeaving ? new Vector2(OFFSCREEN, Data.LocalPos.y) : Data.LocalPos;
+            Vector2 end = isLeaving ? new Vector2(GetSlideEdge(), Data.LocalPos.y) : Data.LocalPos;
             float progress = Advance(deltaTime, SLIDETIME);
             m_rect.anchoredPosition = Vector2.Lerp(m_animationStart, end, progress);
             if (progress < 1f)
@@ -425,6 +425,14 @@ namespace Game.WaterSortPuzzle
                 Release();
             else
                 Data.State = EBottleState.Idle;
+        }
+
+        private float GetSlideEdge()
+        {
+            // 棋盘整体缩放后，按安全区的外沿换算滑动终点，避免瓶子在屏内突然回收。
+            RectTransform board = (RectTransform)m_rect.parent;
+            RectTransform safeArea = (RectTransform)board.parent;
+            return (safeArea.rect.width * 0.5f + SLIDEEDGEPADDING) / board.localScale.x;
         }
 
         private void UpdateCompletion(float deltaTime)
@@ -543,45 +551,17 @@ namespace Game.WaterSortPuzzle
                 m_liquid.SetBubbles(false);
                 m_liquid.SetHighlight(true);
             }
-            if (m_pourAudio != null)
-                m_pourAudio.Stop();
+            if (m_pourPlayID != 0)
+            {
+                AudioManager.Instance.StopAudio(m_pourPlayID);
+                m_pourPlayID = 0;
+            }
         }
 
         private void PlayPourSound()
         {
-            if (m_pourAudio == null)
-            {
-                m_pourAudio = gameObject.AddComponent<AudioSource>();
-                m_pourAudio.playOnAwake = false;
-                m_pourAudio.loop = true;
-                m_pourAudio.volume = 0.2f;
-                m_pourClip = CreatePourSound();
-                m_pourAudio.clip = m_pourClip;
-            }
-
-            m_pourAudio.Play();
-        }
-
-        private static AudioClip CreatePourSound()
-        {
-            const int SAMPLERATE = 22050;
-            float[] samples = new float[SAMPLERATE / 2];
-            System.Random noise = new System.Random(1023);
-            float filtered = 0f;
-
-            // 用低通噪声和短周期脉动合成水流，首尾衰减避免循环接缝爆音。
-            for (int index = 0; index < samples.Length; index++)
-            {
-                float progress = (float)index / (samples.Length - 1);
-                filtered = Mathf.Lerp(filtered, (float)noise.NextDouble() * 2f - 1f, 0.16f);
-                float pulse = 0.75f + 0.25f * Mathf.Sin(progress * 18f * Mathf.PI);
-                float envelope = Mathf.Clamp01(Mathf.Min(progress, 1f - progress) * 60f);
-                samples[index] = filtered * pulse * envelope;
-            }
-
-            AudioClip clip = AudioClip.Create("WaterSortPour", samples.Length, 1, SAMPLERATE, false);
-            clip.SetData(samples, 0);
-            return clip;
+            var options = new AudioPlayOptions { Volume = 0.2f, ReadinessMode = EAudioReadinessMode.RequireReady };
+            m_pourPlayID = AudioManager.Instance.PlayAudio(POUREVENT, options);
         }
     }
 }
