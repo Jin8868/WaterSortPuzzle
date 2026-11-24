@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 using UnityEventSystem = UnityEngine.EventSystems.EventSystem;
 
 namespace Game
@@ -19,16 +18,9 @@ namespace Game
         private const float INPUTCHECKINTERVAL = 0.25f; // 限制全场景输入与画布节点扫描频率。
         private readonly List<Canvas> m_hiddenCanvases = new List<Canvas>(); // 仅记录本窗口临时隐藏的画布。
         private Reporter m_reporter; // 当前对象上的第三方日志收集器。
-        private Canvas m_entryCanvas; // 保证正式包也存在可点击入口的独立 Overlay 画布。
-        private Button m_entryButton; // 日志打开和关闭共用的入口按钮。
-        private Text m_entryText; // 随窗口状态变化的按钮文字。
-        private RectTransform m_entryRect; // 按设备安全区布局的入口位置。
         private UnityEventSystem m_ownedEventSystem; // 启动场景没有输入节点时使用的持久化回退。
         private float m_nextInputCheck; // 下一次允许扫描输入节点和新增画布的实时时刻。
         private bool m_wasVisible; // 上一帧已经应用到画布的窗口状态。
-        private Rect m_lastSafeArea; // 避免每帧重复设置按钮布局。
-        private int m_lastScreenWidth; // 检测分辨率和横竖屏切换。
-        private int m_lastScreenHeight; // 检测分辨率和横竖屏切换。
 
         /// <summary>日志窗口是否正在显示，供启动画布让出显示和输入。</summary>
         public static bool IsVisible => m_instance != null &&
@@ -69,7 +61,6 @@ namespace Game
             m_instance = this;
             m_reporter = GetComponent<Reporter>();
             DontDestroyOnLoad(gameObject);
-            CreateEntry();
         }
 
         private void OnEnable()
@@ -77,7 +68,6 @@ namespace Game
             if (m_instance != this) return;
             SceneManager.sceneLoaded += OnSceneLoaded;
             Canvas.willRenderCanvases += OnWillRenderCanvases;
-            m_entryCanvas.enabled = true;
             m_nextInputCheck = 0f;
         }
 
@@ -85,7 +75,6 @@ namespace Game
         {
             if (m_instance != this) return;
             EnsureInput();
-            Debug.Log("[GameLogViewer] 日志入口已就绪：点击右上角“日志”，或按 F8 打开。");
         }
 
         private void OnDisable()
@@ -94,7 +83,6 @@ namespace Game
             SceneManager.sceneLoaded -= OnSceneLoaded;
             Canvas.willRenderCanvases -= OnWillRenderCanvases;
             HideWindow();
-            if (m_entryCanvas != null) m_entryCanvas.enabled = false;
             if (m_ownedEventSystem != null) m_ownedEventSystem.gameObject.SetActive(false);
         }
 
@@ -102,7 +90,6 @@ namespace Game
         {
             if (m_instance != this) return;
             RestoreCanvases();
-            if (m_entryButton != null) m_entryButton.onClick.RemoveListener(ToggleWindow);
             m_instance = null;
         }
 
@@ -122,7 +109,6 @@ namespace Game
             if (m_instance != this) return;
             // 兼容第三方画圈唤出与窗口内部关闭按钮，统一同步可见状态。
             SynchronizeVisibility();
-            UpdateEntryLayout();
         }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
@@ -166,9 +152,6 @@ namespace Game
             m_wasVisible = visible;
             if (visible) HideOtherCanvases();
             else RestoreCanvases();
-            if (m_entryText != null) m_entryText.text = visible ? "关闭日志" : "日志";
-            // 展开后将入口移到侧面，避开第三方窗口顶端工具栏。
-            m_lastScreenWidth = 0;
         }
 
         private void HideOtherCanvases()
@@ -177,7 +160,7 @@ namespace Game
             Canvas[] canvases = FindObjectsOfType<Canvas>();
             foreach (Canvas canvas in canvases)
             {
-                if (canvas == m_entryCanvas || !canvas.enabled) continue;
+                if (!canvas.enabled) continue;
                 if (!m_hiddenCanvases.Contains(canvas)) m_hiddenCanvases.Add(canvas);
                 canvas.enabled = false;
             }
@@ -229,61 +212,6 @@ namespace Game
             }
             m_ownedEventSystem.gameObject.SetActive(true);
             UnityEventSystem.current = m_ownedEventSystem;
-        }
-
-        private void CreateEntry()
-        {
-            // 入口只依赖主包 UGUI 与内置字体，启动失败和正式 Release 包均可使用。
-            var entryRoot = new GameObject("LogViewerEntry",
-                typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster));
-            entryRoot.transform.SetParent(transform, false);
-            m_entryCanvas = entryRoot.GetComponent<Canvas>();
-            m_entryCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            m_entryCanvas.sortingOrder = short.MaxValue;
-
-            var buttonObject = new GameObject("ToggleLogs", typeof(RectTransform), typeof(Image), typeof(Button));
-            buttonObject.transform.SetParent(entryRoot.transform, false);
-            m_entryRect = buttonObject.GetComponent<RectTransform>();
-            m_entryRect.anchorMin = Vector2.one;
-            m_entryRect.anchorMax = Vector2.one;
-            m_entryRect.pivot = Vector2.one;
-            Image background = buttonObject.GetComponent<Image>();
-            background.color = new Color(0.1f, 0.16f, 0.23f, 0.95f);
-            m_entryButton = buttonObject.GetComponent<Button>();
-            m_entryButton.targetGraphic = background;
-            m_entryButton.onClick.AddListener(ToggleWindow);
-
-            var textObject = new GameObject("Label", typeof(RectTransform), typeof(Text));
-            textObject.transform.SetParent(buttonObject.transform, false);
-            RectTransform textRect = textObject.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = Vector2.zero;
-            textRect.offsetMax = Vector2.zero;
-            m_entryText = textObject.GetComponent<Text>();
-            m_entryText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            m_entryText.alignment = TextAnchor.MiddleCenter;
-            m_entryText.color = Color.white;
-            m_entryText.raycastTarget = false;
-            m_entryText.text = "日志";
-            UpdateEntryLayout();
-        }
-
-        private void UpdateEntryLayout()
-        {
-            Rect safeArea = Screen.safeArea;
-            if (m_lastScreenWidth == Screen.width && m_lastScreenHeight == Screen.height &&
-                m_lastSafeArea == safeArea) return;
-            m_lastScreenWidth = Screen.width;
-            m_lastScreenHeight = Screen.height;
-            m_lastSafeArea = safeArea;
-            float scale = Mathf.Clamp(Screen.dpi / 160f, 1f, 2f);
-            float topMargin = m_wasVisible ? 110f : 16f;
-            m_entryRect.sizeDelta = new Vector2(144f, 56f) * scale;
-            m_entryRect.anchoredPosition = new Vector2(
-                safeArea.xMax - Screen.width - 16f * scale,
-                safeArea.yMax - Screen.height - topMargin * scale);
-            m_entryText.fontSize = Mathf.RoundToInt(22f * scale);
         }
 
         private void OnGUI()

@@ -16,6 +16,11 @@ namespace Game.UI
             View.EnterLevel(levelID);
         }
 
+        internal void StartLevel(int levelID)
+        {
+            View.StartLevel(levelID);
+        }
+
         protected override UniTask OnPrepareAsync(UIEmptyData data, CancellationToken cancellationToken)
         {
             return View.PrepareGameplayAsync(cancellationToken);

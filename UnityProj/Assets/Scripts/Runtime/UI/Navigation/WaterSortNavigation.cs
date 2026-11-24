@@ -1,4 +1,5 @@
-﻿using System.Threading;
+using System;
+using System.Threading;
 using AlloyFramework.UI;
 using Cysharp.Threading.Tasks;
 using Game.UI;
@@ -31,7 +32,29 @@ namespace Game.WaterSortPuzzle
             return SwitchAsync(levelID, m_lifetime.Token);
         }
 
-        private static async UniTask SwitchAsync(int levelID, CancellationToken cancellationToken)
+        internal static async UniTask<bool> TryStartLevelAsync(int levelID)
+        {
+            if (levelID < 1 || levelID > WaterSortLevelCatalog.Count || m_lifetime == null || m_transition != null)
+            {
+                return false;
+            }
+
+            // 所有进入方式共用切换锁，避免同时交接页面。
+            var cancellationToken = m_lifetime.Token;
+            try
+            {
+                await SwitchAsync(levelID, cancellationToken);
+                return !cancellationToken.IsCancellationRequested;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return false;
+            }
+        }
+
+        private static async UniTask SwitchAsync(
+            int levelID,
+            CancellationToken cancellationToken)
         {
             if (m_transition != null || cancellationToken.IsCancellationRequested) return;
             var transition = new UniTaskCompletionSource();
@@ -51,7 +74,7 @@ namespace Game.WaterSortPuzzle
                     try
                     {
                         // 生成的界面定义没有数据参数，通过实际打开的实例接收关卡编号。
-                        handle.Controller.EnterLevel(levelID);
+                        handle.Controller.StartLevel(levelID);
                     }
                     catch
                     {

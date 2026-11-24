@@ -9,7 +9,7 @@ namespace Game
 {
     /// <summary>统一协调业务模块初始化、进入游戏和逆序退出。</summary>
     [Preserve]
-    public sealed class GameEntry : IGameEntry
+    public sealed partial class GameEntry : IGameEntry
     {
         private readonly GameStartupPipeline m_startupPipeline = new GameStartupPipeline(); // 可扩展的业务模块管线。
 

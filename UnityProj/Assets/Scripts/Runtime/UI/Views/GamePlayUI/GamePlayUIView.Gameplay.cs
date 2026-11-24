@@ -76,11 +76,16 @@ namespace Game.UI
 
         internal void EnterLevel(int levelID)
         {
-            if (m_controller == null)
-                throw new InvalidOperationException("倒水页面尚未打开。");
-
             if (!WaterSortProgress.IsUnlocked(levelID))
                 throw new ArgumentOutOfRangeException(nameof(levelID), "关卡不存在或尚未解锁。");
+
+            StartLevel(levelID);
+        }
+
+        internal void StartLevel(int levelID)
+        {
+            if (m_controller == null)
+                throw new InvalidOperationException("倒水页面尚未打开。");
 
             m_playing = true;
             m_controller.LoadLevel(levelID);

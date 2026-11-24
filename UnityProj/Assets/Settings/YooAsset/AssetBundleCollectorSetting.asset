@@ -90,6 +90,14 @@ MonoBehaviour:
         FilterRuleName: CollectPrefab
         AssetTags: 
         UserData: 
+      - CollectPath: Packages/com.alloy.framework/Runtime/Res/Prefabs/Framework/GM
+        CollectorGUID: d029abad7f5c49089992905969d1c38d
+        CollectorType: 0
+        AddressRuleName: AddressByAlloyFrameworkResPath
+        PackRuleName: PackDirectory
+        FilterRuleName: CollectPrefab
+        AssetTags:
+        UserData:
     - GroupName: materials
       GroupDesc: Material resources
       AssetTags: 
