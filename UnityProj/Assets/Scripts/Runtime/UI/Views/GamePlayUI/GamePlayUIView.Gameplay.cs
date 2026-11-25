@@ -11,10 +11,6 @@ namespace Game.UI
 {
     public sealed partial class GamePlayUIView
     {
-        private const float BOTTLESIDEREACH = 380f; // 横向倾倒时，相对目标瓶中心的最大距离。
-        private const float BOTTLEUPPERREACH = 536f; // 顶排倒水时，相对目标瓶中心的最大高度。
-        private const float BOTTLELOWERREACH = 220f; // 瓶身旋转时，相对所在行中心的最大下探距离。
-
         private readonly Dictionary<BottleData, BottleCell> m_cells = new Dictionary<BottleData, BottleCell>(); // 瓶子映射。
         private readonly List<BottleCell> m_liveCells = new List<BottleCell>(); // 包括正在滑出的实例。
         private readonly Stack<BottleCell> m_bottlePool = new Stack<BottleCell>(); // 回收后的瓶子。
@@ -212,28 +208,20 @@ namespace Game.UI
             ReleaseAll();
 
             IReadOnlyList<BottleData> bottles = m_controller.Bottles;
-            WaterSortLayout.Apply(bottles);
-
-            // 将顶部倒水轨迹和瓶身旋转范围计入布局，为工具栏及计时区保留空间。
-            float bottleScale = bottles[0].LocalScale;
-            float top = bottles[0].LocalPos.y + BOTTLEUPPERREACH * bottleScale;
-            float bottom = bottles[bottles.Count - 1].LocalPos.y - BOTTLELOWERREACH * bottleScale;
-            float halfWidth = 0f;
-            foreach (BottleData bottle in bottles)
-                halfWidth = Mathf.Max(halfWidth, Mathf.Abs(bottle.LocalPos.x) + BOTTLESIDEREACH * bottleScale);
-
             if (m_board == null)
             {
                 m_board = (RectTransform)GoBottle.transform;
                 m_boardAnchorY = m_board.anchoredPosition.y;
             }
 
-            // 以静止瓶身的行中点为原点，倒水的额外空间只参与适配。
-            float centerY = (bottles[0].LocalPos.y + bottles[bottles.Count - 1].LocalPos.y) * 0.5f;
-            m_boardLayoutBounds = Rect.MinMaxRect(-halfWidth, bottom - centerY, halfWidth, top - centerY);
+            // 按当前安全区选择排列，动画期间只缩放棋盘，不移动其他瓶子的原位。
+            RectTransform safeArea = (RectTransform)m_board.parent;
+            float centerY = safeArea.rect.center.y - (m_board.localPosition.y - m_board.anchoredPosition.y);
+            Rect available = m_board.rect;
+            m_boardLayoutBounds = WaterSortLayout.Apply(bottles, available.width,
+                m_boardAnchorY + available.yMax - centerY, centerY - m_boardAnchorY - available.yMin);
             foreach (BottleData bottle in bottles)
             {
-                bottle.LocalPos -= Vector2.up * centerY;
                 RentBottle(bottle).PlaySlideIn(true);
             }
             FitBoard();
