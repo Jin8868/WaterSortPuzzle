@@ -24,5 +24,11 @@ namespace Game.UI
         /// </summary>
         public static UIDefinition<LevelSelectUIView, LevelSelectUIController> LevelSelectUI =>
             (UIDefinition<LevelSelectUIView, LevelSelectUIController>)m_definitions["LevelSelectUI"];
+
+        /// <summary>
+        /// ResultUI 的静态界面定义。
+        /// </summary>
+        public static UIDefinition<ResultUIView, ResultUIController, ResultUIData> ResultUI =>
+            (UIDefinition<ResultUIView, ResultUIController, ResultUIData>)m_definitions["ResultUI"];
     }
 }

@@ -36,6 +36,11 @@ namespace Game.UI
             View.CloseSession();
         }
 
+        protected override UniTask OnCloseAnimationAsync(CancellationToken cancellationToken)
+        {
+            return View.WaitForResultCloseAsync();
+        }
+
         protected override void OnDispose()
         {
             View.CloseSession();

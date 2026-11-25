@@ -14,9 +14,8 @@ namespace Game.WaterSortPuzzle
             int count = bottles.Count;
             int rows = count <= 8 ? 1 : count <= 24 ? 2 : 3;
             float spaceX = count <= 8 ? 230f : count <= 16 ? 207f : count <= 24 ? 154f : 157f;
-            float spaceY = count <= 8 ? 0f : count <= 16 ? 428f : count <= 24 ? 377f : 294f;
-            float offsetY = count <= 8 ? -65f : count <= 16 ? 120f : count <= 24 ? 63f : 133f;
-            float scale = count <= 8 ? 1f : count <= 16 ? 0.9f : count <= 24 ? 0.72f : 0.62f;
+            // 原尺寸瓶身高约 380，行距留出选中抬升的空间，最终比例交由棋盘统一计算。
+            const float ROWSPACING = 440f;
             int index = 0;
             for (int row = 0; row < rows; row++)
             {
@@ -25,8 +24,8 @@ namespace Game.WaterSortPuzzle
                 {
                     BottleData bottle = bottles[index++];
                     bottle.LocalPos = new Vector2((column - (rowCount - 1) * 0.5f) * spaceX,
-                        -row * spaceY + offsetY);
-                    bottle.LocalScale = scale;
+                        ((rows - 1) * 0.5f - row) * ROWSPACING);
+                    bottle.LocalScale = 1f;
                 }
             }
         }

@@ -58,3 +58,18 @@ MonoBehaviour:
     m_openMode: 0
     m_navigation: 0
     m_pauseCovered: 0
+  - m_prefabGuid: 1d66501202eb42ebb9b620ccb0f8a67c
+    m_uiName: ResultUI
+    m_dataTypeName: ResultUIData
+    m_scriptNamespace: Game.UI
+    m_viewFolder: Assets/Scripts/Runtime/UI/Views/ResultUI
+    m_controllerFolder: Assets/Scripts/Runtime/UI/Controllers/ResultUI
+    m_hasGenerated: 1
+    m_layer: 200
+    m_layout: 1
+    m_background: 0
+    m_input: 1
+    m_cache: 0
+    m_openMode: 0
+    m_navigation: 0
+    m_pauseCovered: 0

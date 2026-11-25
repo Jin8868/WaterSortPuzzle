@@ -40,6 +40,8 @@ namespace Game.WaterSortPuzzle
         public int Score { get; private set; }
         public int SortedBottleCount { get; private set; }
         public int ResetCount { get; private set; }
+        /// <summary>本关累计完成的倒水操作数，一次连续倒出多层计为一步。</summary>
+        public int PourStepCount { get; private set; }
         public double ElapsedSeconds { get; private set; }
         public float RemainingTime { get; private set; }
         public int ReverseRemaining { get; private set; }
@@ -56,6 +58,7 @@ namespace Game.WaterSortPuzzle
             LevelDefinition level = WaterSortLevelCatalog.Get(levelID);
             ElapsedSeconds = 0d;
             ResetCount = 0;
+            PourStepCount = 0;
             StartAttempt(level);
         }
 
@@ -168,6 +171,7 @@ namespace Game.WaterSortPuzzle
             if (!CanAdvance(command) || command.State != EPourCommandState.Finished)
                 return;
             RemoveActive(command);
+            PourStepCount++;
             if (command.Target.IsFinish() && !HasIncoming(command.Target))
                 m_completionTokens[command.Target] = command;
             FinishPour?.Invoke(command);

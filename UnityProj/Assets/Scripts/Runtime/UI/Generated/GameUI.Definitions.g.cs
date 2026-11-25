@@ -17,7 +17,7 @@ namespace Game.UI
 
         private static Dictionary<string, UIDefinition> CreateDefinitions()
         {
-            var definitions = new Dictionary<string, UIDefinition>(3);
+            var definitions = new Dictionary<string, UIDefinition>(4);
             AddDefinitions0(definitions);
             return definitions;
         }
@@ -61,6 +61,21 @@ namespace Game.UI
                     .Location("Prefabs/UI/LevelSelectUI/LevelSelectUI")
                     .Layer(UILayer.POPUP)
                     .Layout(UILayoutMode.FullScreen)
+                    .Background(UIBackgroundMode.None)
+                    .Input(UIInputMode.Block)
+                    .Cache(UICacheMode.DestroyOnClose)
+                    .OpenMode(UIOpenMode.SingleRefresh)
+                    .Navigation(UINavigationMode.None)
+                    .PauseCovered(false)
+                    .Build());
+
+            // 注册 ResultUI 的静态界面定义。
+            definitions.Add(
+                "ResultUI",
+                new UIDefinitionBuilder<ResultUIView, ResultUIController, ResultUIData>("ResultUI")
+                    .Location("Prefabs/UI/GameUI/ResultUI")
+                    .Layer(UILayer.POPUP)
+                    .Layout(UILayoutMode.Window)
                     .Background(UIBackgroundMode.None)
                     .Input(UIInputMode.Block)
                     .Cache(UICacheMode.DestroyOnClose)

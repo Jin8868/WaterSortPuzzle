@@ -27,8 +27,9 @@ namespace Game.UI
         private int m_navigationVersion; // 避免旧的跳转完成后影响复用页面。
         private int m_lastReverse = int.MinValue; // 上次显示的撤销次数。
         private int m_lastTimerSecond = -1; // 上次显示的倒计时秒数。
-        private Vector2 m_boardLayoutSize; // 含选中、封瓶和倒水动画的棋盘布局尺寸。
-        [SerializeField] private UnityEngine.UI.Text m_resultTitle; // 结算面板上已有的标题。
+        private RectTransform m_board; // 承载全部瓶子的棋盘节点。
+        private float m_boardAnchorY; // 预制体中棋盘区域相对锚点的原始高度。
+        private Rect m_boardLayoutBounds; // 相对静止瓶组中心的完整动画范围。
 
         private bool CanPlay => m_playing && !m_navigating && m_confirmationRequest == null && !m_controller.IsStopped;
 
@@ -67,9 +68,6 @@ namespace Game.UI
             m_controller.FinishPour += HandleHintPourFinished;
             m_controller.SyncData += HandleHintUndo;
             m_controller.Stopped += StopHints;
-            GoResult.SetActive(false);
-            BtnClose.onClick.AddListener(HandleResultClose);
-            BtnNext.onClick.AddListener(HandleNextLevel);
             BtnBack.onClick.AddListener(HandleBack);
             BtnReset.onClick.AddListener(HandleReset);
             BtnRetrun.onClick.AddListener(HandleReverse);
@@ -105,6 +103,7 @@ namespace Game.UI
             m_navigationVersion++;
             m_navigating = false;
             InvalidateConfirmation();
+            InvalidateResult();
             m_controller.Stop();
             ReleaseAll();
             RefreshButtons();
@@ -116,9 +115,6 @@ namespace Game.UI
             m_controller.FinishPour -= HandleHintPourFinished;
             m_controller.SyncData -= HandleHintUndo;
             m_controller.Stopped -= StopHints;
-            GoResult.SetActive(false);
-            BtnClose.onClick.RemoveListener(HandleResultClose);
-            BtnNext.onClick.RemoveListener(HandleNextLevel);
             BtnBack.onClick.RemoveListener(HandleBack);
             BtnReset.onClick.RemoveListener(HandleReset);
             BtnRetrun.onClick.RemoveListener(HandleReverse);
@@ -212,7 +208,7 @@ namespace Game.UI
         {
             StartGameplayAudio();
             InvalidateConfirmation();
-            GoResult.SetActive(false);
+            InvalidateResult();
             ReleaseAll();
 
             IReadOnlyList<BottleData> bottles = m_controller.Bottles;
@@ -226,15 +222,21 @@ namespace Game.UI
             foreach (BottleData bottle in bottles)
                 halfWidth = Mathf.Max(halfWidth, Mathf.Abs(bottle.LocalPos.x) + BOTTLESIDEREACH * bottleScale);
 
-            m_boardLayoutSize = new Vector2(halfWidth * 2f, top - bottom);
-            FitBoard();
+            if (m_board == null)
+            {
+                m_board = (RectTransform)GoBottle.transform;
+                m_boardAnchorY = m_board.anchoredPosition.y;
+            }
 
-            float centerY = (top + bottom) * 0.5f;
+            // 以静止瓶身的行中点为原点，倒水的额外空间只参与适配。
+            float centerY = (bottles[0].LocalPos.y + bottles[bottles.Count - 1].LocalPos.y) * 0.5f;
+            m_boardLayoutBounds = Rect.MinMaxRect(-halfWidth, bottom - centerY, halfWidth, top - centerY);
             foreach (BottleData bottle in bottles)
             {
                 bottle.LocalPos -= Vector2.up * centerY;
                 RentBottle(bottle).PlaySlideIn(true);
             }
+            FitBoard();
 
             LevelDefinition level = WaterSortLevelCatalog.Get(m_controller.LevelID);
             m_levelLabel = "关卡 " + level.Name;
@@ -245,17 +247,30 @@ namespace Game.UI
 
         private void FitBoard()
         {
-            if (m_boardLayoutSize == Vector2.zero)
+            if (m_board == null)
                 return;
 
-            // 安全区变化时统一缩放棋盘，活动瓶子的本地位置和动画进度保持连续。
-            RectTransform board = (RectTransform)GoBottle.transform;
-            Vector2 available = board.rect.size;
-            if (available.x <= 0f || available.y <= 0f) return;
-            float scale = Mathf.Min(available.x / m_boardLayoutSize.x, available.y / m_boardLayoutSize.y);
-            scale = Mathf.Clamp(scale, 0.001f, 1f);
-            if (!Mathf.Approximately(board.localScale.x, scale))
-                board.localScale = new Vector3(scale, scale, 1f);
+            Rect available = m_board.rect;
+            if (available.width <= 0f || available.height <= 0f)
+                return;
+
+            // 从安全区中心开始布局，只使用关卡的静态边界，避免棋盘跟随倒水动画移动。
+            RectTransform safeArea = (RectTransform)m_board.parent;
+            Vector2 position = m_board.anchoredPosition;
+            float anchorY = m_board.localPosition.y - position.y;
+            float centerY = safeArea.rect.center.y - anchorY;
+            float bottom = m_boardAnchorY + available.yMin;
+            float top = m_boardAnchorY + available.yMax;
+            // 固定静止瓶组的中心，分别用中心到上下边缘的净空限制缩放。
+            float scale = Mathf.Min(1f, available.width / m_boardLayoutBounds.width);
+            scale = Mathf.Min(scale, (top - centerY) / m_boardLayoutBounds.yMax);
+            scale = Mathf.Clamp01(Mathf.Min(scale, (centerY - bottom) / -m_boardLayoutBounds.yMin));
+            if (!Mathf.Approximately(m_board.localScale.x, scale))
+                m_board.localScale = new Vector3(scale, scale, 1f);
+
+            position.y = centerY;
+            if (!Mathf.Approximately(m_board.anchoredPosition.y, position.y))
+                m_board.anchoredPosition = position;
         }
 
         private void HandleBottleReplaced(BottleData previous, BottleData replacement)
@@ -279,12 +294,10 @@ namespace Game.UI
         private void RefreshButtons()
         {
             bool canPlay = CanPlay;
-            BtnBack.interactable = canPlay;
+            BtnBack.interactable = canPlay || CanLeaveWithoutResult;
             BtnReset.interactable = canPlay;
             BtnRetrun.interactable = canPlay && m_controller.CanReverse;
             BtnHint.interactable = CanStartHints;
-            BtnClose.interactable = m_playing && !m_navigating;
-            BtnNext.interactable = BtnClose.interactable;
             if (m_lastReverse != m_controller.ReverseRemaining)
             {
                 m_lastReverse = m_controller.ReverseRemaining;
@@ -336,6 +349,12 @@ namespace Game.UI
 
         private void HandleBack()
         {
+            if (CanLeaveWithoutResult)
+            {
+                ReturnToSelectionAsync().Forget();
+                return;
+            }
+
             if (!CanPlay)
                 return;
 
@@ -348,7 +367,7 @@ namespace Game.UI
             if (m_controller.IsInfinity)
             {
                 SettleInfinity();
-                ShowResult();
+                ShowResultAsync().Forget();
                 return;
             }
 
@@ -378,6 +397,7 @@ namespace Game.UI
             finally
             {
                 request.Loading = null;
+                request.Opened.TrySetResult();
                 if (request.Handle == null && ReferenceEquals(m_confirmationRequest, request))
                 {
                     m_confirmationRequest = null;
@@ -400,6 +420,11 @@ namespace Game.UI
 
         private void InvalidateConfirmation()
         {
+            DismissConfirmationAsync().Forget();
+        }
+
+        private async UniTask DismissConfirmationAsync()
+        {
             ConfirmationRequest request = m_confirmationRequest;
             if (request == null)
                 return;
@@ -407,71 +432,28 @@ namespace Game.UI
             // 先阻止旧回调，再取消加载或按句柄关闭仍显示此请求的弹窗。
             m_confirmationRequest = null;
             request.Loading?.Cancel();
+            await request.Opened.Task;
             UIHandle<ConfirmUIController> handle = request.Handle;
-            if (handle != null && handle.IsValid && handle.Controller.IsShowing(request.Data))
-                handle.CloseAsync().Forget();
+            if (handle != null && handle.IsValid
+                && (handle.State == UIState.Closing || handle.Controller.IsShowing(request.Data)))
+                await handle.CloseAsync();
         }
 
         private void HandleCompleted()
         {
-            InvalidateConfirmation();
             if (m_controller.IsInfinity)
                 SettleInfinity();
             else
                 WaterSortProgress.RecordCompletion(m_controller.LevelID);
 
-            ShowResult();
+            ShowResultAsync().Forget();
         }
 
         private void HandleTimedOut()
         {
-            InvalidateConfirmation();
             if (m_controller.IsInfinity)
                 WaterSortProgress.RecordBestScore(m_controller.Score);
-            ShowResult();
-        }
-
-        private void ShowResult()
-        {
-            StopGameplayAudio();
-            // 结算时冻结三个数值，同一场游戏内重试的时间计入关卡耗时。
-            int seconds = (int)m_controller.ElapsedSeconds;
-            m_resultTitle.text = GetResultTitle();
-            TxtUseTime.text = $"{seconds / 60:00}:{seconds % 60:00}";
-            TxtBottleNum.text = m_controller.SortedBottleCount.ToString();
-            TxtRestNum.text = m_controller.ResetCount.ToString();
-            BtnNext.gameObject.SetActive(GetNextLevelID() > 0);
-            GoResult.SetActive(true);
-            RefreshLevelInfo();
-            RefreshButtons();
-        }
-
-        private int GetNextLevelID()
-        {
-            if (!m_controller.IsCompleted || m_controller.IsInfinity)
-                return 0;
-
-            // 旧版无尽关保留存档编号，后续追加的普通关仍可通过“下一关”进入。
-            for (int id = m_controller.LevelID + 1; id <= WaterSortLevelCatalog.Count; id++)
-            {
-                if (!WaterSortLevelCatalog.Get(id).IsInfinity && WaterSortProgress.IsUnlocked(id))
-                    return id;
-            }
-            return 0;
-        }
-
-        private void HandleResultClose()
-        {
-            if (GoResult.activeSelf && !m_navigating) ReturnToSelectionAsync().Forget();
-        }
-
-        private void HandleNextLevel()
-        {
-            if (!GoResult.activeSelf || m_navigating)
-                return;
-            int nextID = GetNextLevelID();
-            if (nextID > 0)
-                EnterLevel(nextID);
+            ShowResultAsync().Forget();
         }
 
         private void SettleInfinity()
@@ -530,6 +512,7 @@ namespace Game.UI
             }
 
             internal ConfirmUIData Data { get; }
+            internal UniTaskCompletionSource Opened { get; } = new UniTaskCompletionSource();
             internal CancellationTokenSource Loading { get; set; }
             internal UIHandle<ConfirmUIController> Handle { get; set; }
 

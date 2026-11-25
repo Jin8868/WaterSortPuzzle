@@ -12,36 +12,6 @@ namespace Game.UI
         public UnityEngine.GameObject GoBottle => m_goBottle;
 
         [UnityEngine.SerializeField, AlloyFramework.UI.UIBindingReference]
-        private UnityEngine.GameObject m_goResult;
-
-        public UnityEngine.GameObject GoResult => m_goResult;
-
-        [UnityEngine.SerializeField, AlloyFramework.UI.UIBindingReference]
-        private UnityEngine.UI.Button m_btnClose;
-
-        public UnityEngine.UI.Button BtnClose => m_btnClose;
-
-        [UnityEngine.SerializeField, AlloyFramework.UI.UIBindingReference]
-        private UnityEngine.UI.Button m_btnNext;
-
-        public UnityEngine.UI.Button BtnNext => m_btnNext;
-
-        [UnityEngine.SerializeField, AlloyFramework.UI.UIBindingReference]
-        private UnityEngine.UI.Text m_txtRestNum;
-
-        public UnityEngine.UI.Text TxtRestNum => m_txtRestNum;
-
-        [UnityEngine.SerializeField, AlloyFramework.UI.UIBindingReference]
-        private UnityEngine.UI.Text m_txtBottleNum;
-
-        public UnityEngine.UI.Text TxtBottleNum => m_txtBottleNum;
-
-        [UnityEngine.SerializeField, AlloyFramework.UI.UIBindingReference]
-        private UnityEngine.UI.Text m_txtUseTime;
-
-        public UnityEngine.UI.Text TxtUseTime => m_txtUseTime;
-
-        [UnityEngine.SerializeField, AlloyFramework.UI.UIBindingReference]
         private UnityEngine.UI.Button m_btnReset;
 
         public UnityEngine.UI.Button BtnReset => m_btnReset;
