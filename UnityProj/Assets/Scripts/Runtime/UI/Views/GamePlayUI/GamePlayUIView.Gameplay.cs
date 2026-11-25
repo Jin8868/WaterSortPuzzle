@@ -12,7 +12,7 @@ namespace Game.UI
     public sealed partial class GamePlayUIView
     {
         private const float BOTTLESIDEREACH = 380f; // 横向倾倒时，相对目标瓶中心的最大距离。
-        private const float BOTTLEUPPERREACH = 640f; // 顶排倒水时，相对目标瓶中心的最大高度。
+        private const float BOTTLEUPPERREACH = 536f; // 顶排倒水时，相对目标瓶中心的最大高度。
         private const float BOTTLELOWERREACH = 220f; // 瓶身旋转时，相对所在行中心的最大下探距离。
 
         private readonly Dictionary<BottleData, BottleCell> m_cells = new Dictionary<BottleData, BottleCell>(); // 瓶子映射。

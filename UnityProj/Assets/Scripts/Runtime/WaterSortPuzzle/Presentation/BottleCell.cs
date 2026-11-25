@@ -18,7 +18,7 @@ namespace Game.WaterSortPuzzle
         private const float COMPLETETIME = 0.44f; // 完成封瓶的秒数。
         private const float MOUTHHEIGHT = 171f; // 瓶口相对瓶身中心的高度。
         private const float MOUTHEDGE = 25f; // 瓶口边缘相对中心的宽度。
-        private const float STREAMGAP = 84f; // 倒水时两瓶瓶口的垂直距离。
+        private const float STREAMGAP = 16f; // 倒水时两瓶瓶口的垂直距离。
         private static readonly Vector2 m_streamStartOffset = new Vector2(6f, 4f); // 棋盘坐标中的出水口微调量。
         private const float SLIDEEDGEPADDING = 132f; // 换瓶滑动超出安全区的额外距离。
 
