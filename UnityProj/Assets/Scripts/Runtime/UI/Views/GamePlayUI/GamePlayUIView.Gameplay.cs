@@ -432,7 +432,10 @@ namespace Game.UI
             if (m_controller.IsInfinity)
                 SettleInfinity();
             else
-                WaterSortProgress.RecordCompletion(m_controller.LevelID);
+                WaterSortProgress.RecordCompletion(
+                    m_controller.LevelID,
+                    m_controller.PourStepCount,
+                    (float)m_controller.ElapsedSeconds);
 
             ShowResultAsync().Forget();
         }

@@ -6,7 +6,9 @@
     "MaxDurationSeconds": 300,
     "HintSteps": -1,
     "ReverseColor": true,
+    "ChallengeMode": true,
     "IsInfinity": false,
+    "OptimalSteps": 38,
     "Bottles": [
         {
             "Colors": [

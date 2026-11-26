@@ -12,8 +12,11 @@ namespace Game.WaterSortPuzzle
         private static CancellationTokenSource m_lifetime; // 当前业务会话的导航生命周期。
         private static UniTaskCompletionSource m_transition; // 阻止重复点击并等待在途切换退出。
 
+        internal static bool ChallengeSelected { get; set; }
+
         internal static async UniTask StartAsync(CancellationToken cancellationToken)
         {
+            ChallengeSelected = false;
             m_lifetime = new CancellationTokenSource();
             using (var startup = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, m_lifetime.Token))
             {
@@ -75,6 +78,7 @@ namespace Game.WaterSortPuzzle
                     {
                         // 生成的界面定义没有数据参数，通过实际打开的实例接收关卡编号。
                         handle.Controller.StartLevel(levelID);
+                        ChallengeSelected = WaterSortLevelCatalog.Get(levelID).IsChallenge;
                     }
                     catch
                     {

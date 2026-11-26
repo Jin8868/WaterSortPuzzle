@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEngine;
@@ -24,6 +26,7 @@ namespace Game.WaterSortPuzzle.Editor
         private readonly List<BottleData> m_previewLayout = new List<BottleData>(); // 与玩法共用的预览布局坐标。
         private string m_status; // 最近一次操作的反馈。
         private MessageType m_statusType; // 最近一次反馈的级别。
+        private CancellationTokenSource m_search; // 当前后台求解，窗口关闭时取消。
 
         [MenuItem("★AlloyFramework★/倒水游戏/关卡编辑器")]
         private static void Open()
@@ -71,13 +74,17 @@ namespace Game.WaterSortPuzzle.Editor
                 m_scroll = EditorGUILayout.BeginScrollView(m_scroll);
                 EditorGUI.BeginChangeCheck();
                 DrawLevel();
+                EditorGUI.BeginChangeCheck();
                 DrawBottles();
+                if (EditorGUI.EndChangeCheck())
+                    m_level.OptimalSteps = -1;
                 if (EditorGUI.EndChangeCheck())
                 {
                     hasUnsavedChanges = true;
                     Repaint();
                 }
                 EditorGUILayout.EndScrollView();
+                DrawOptimalSteps();
             }
 
             if (!string.IsNullOrEmpty(m_status))
@@ -133,8 +140,19 @@ namespace Game.WaterSortPuzzle.Editor
             m_level.ReverseCount = EditorGUILayout.IntField("撤销次数（-1 不限）", m_level.ReverseCount);
             m_level.HintSteps = EditorGUILayout.IntField("提示步数（-1 全部，0 禁用）", m_level.HintSteps);
             m_level.MaxDurationSeconds = EditorGUILayout.IntField("限时秒数", m_level.MaxDurationSeconds);
+            EditorGUI.BeginChangeCheck();
             m_level.ReverseColor = EditorGUILayout.Toggle("反转颜色", m_level.ReverseColor);
             m_level.IsInfinity = EditorGUILayout.Toggle("无尽模式", m_level.IsInfinity);
+            if (EditorGUI.EndChangeCheck())
+                m_level.OptimalSteps = -1;
+
+            // 分类只影响选关入口，无尽关始终从挑战模式进入。
+            using (new EditorGUI.DisabledScope(m_level.IsInfinity))
+            {
+                bool challenge = EditorGUILayout.Toggle("归入挑战模式", m_level.IsChallenge);
+                if (!m_level.IsInfinity)
+                    m_level.ChallengeMode = challenge;
+            }
 
             using (new EditorGUI.DisabledScope(m_level.IsInfinity))
             using (new EditorGUILayout.HorizontalScope())
@@ -146,6 +164,83 @@ namespace Game.WaterSortPuzzle.Editor
                 if (GUILayout.Button("生成局面", GUILayout.Width(85))
                     && EditorUtility.DisplayDialog("生成局面", "生成的瓶子将替换当前草稿的瓶子。", "生成", "取消"))
                     GenerateBottles();
+            }
+        }
+
+        private void DrawOptimalSteps()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                string steps = m_level.OptimalSteps >= 0 ? m_level.OptimalSteps.ToString() : "未计算";
+                EditorGUILayout.LabelField("最优步数", m_level.IsInfinity ? "无尽模式不适用" : steps);
+                using (new EditorGUI.DisabledScope(m_level.IsInfinity || m_search != null))
+                {
+                    if (GUILayout.Button("计算并保存最优步数", GUILayout.Width(150)))
+                        CalculateAndSaveOptimalSteps();
+                }
+            }
+        }
+
+        private void OnDisable()
+        {
+            // 后台任务自行释放令牌；关闭或重开窗口后丢弃旧结果。
+            m_search?.Cancel();
+            m_search = null;
+        }
+
+        private async void CalculateAndSaveOptimalSteps()
+        {
+            LevelDefinition draft = m_level;
+            using (var search = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+            {
+                m_search = search;
+                try
+                {
+                    // 在主线程验证草稿，求解器仅接收独立的瓶子快照。
+                    string snapshot = JsonUtility.ToJson(draft);
+                    List<BottleData> bottles = WaterSortLevelCatalog.Parse(snapshot).CreateBottles();
+                    SetStatus("正在计算当前局面的最优步数…", MessageType.Info);
+                    WaterSortSolution solution = await Task.Run(() => WaterSortSolver.Solve(bottles, search.Token));
+                    if (m_search != search)
+                        return;
+
+                    search.Token.ThrowIfCancellationRequested();
+                    if (m_level != draft || JsonUtility.ToJson(draft) != snapshot)
+                    {
+                        SetStatus("草稿已切换或修改，请重新计算。", MessageType.Info);
+                        return;
+                    }
+
+                    if (solution.MinimumSteps < 0)
+                    {
+                        SetStatus("当前局面无解。", MessageType.Warning);
+                        return;
+                    }
+
+                    // 复用现有保存入口，保留外部修改检测和原子替换。
+                    draft.OptimalSteps = solution.MinimumSteps;
+                    hasUnsavedChanges = true;
+                    if (TrySave())
+                        SetStatus($"已保存 {Path.GetFileName(m_loadedPath)}，最优步数为 {draft.OptimalSteps}。", MessageType.Info);
+                }
+                catch (OperationCanceledException)
+                {
+                    if (m_search == search)
+                        SetStatus("求解超过 30 秒，未写入结果。", MessageType.Warning);
+                }
+                catch (Exception exception)
+                {
+                    if (m_search == search)
+                        SetStatus($"求解失败：{exception.Message}", MessageType.Error);
+                }
+                finally
+                {
+                    if (m_search == search)
+                    {
+                        m_search = null;
+                        Repaint();
+                    }
+                }
             }
         }
 
@@ -270,6 +365,7 @@ namespace Game.WaterSortPuzzle.Editor
                 int index = m_level.Bottles.Length;
                 Array.Resize(ref m_level.Bottles, index + 1);
                 m_level.Bottles[index] = new BottleDefinition { Colors = Array.Empty<int>() };
+                m_level.OptimalSteps = -1;
                 hasUnsavedChanges = true;
             }
         }
@@ -279,6 +375,7 @@ namespace Game.WaterSortPuzzle.Editor
             BottleDefinition[] bottles = m_level.Bottles;
             Array.Copy(bottles, index + 1, bottles, index, bottles.Length - index - 1);
             Array.Resize(ref m_level.Bottles, bottles.Length - 1);
+            m_level.OptimalSteps = -1;
             hasUnsavedChanges = true;
         }
 
@@ -426,6 +523,7 @@ namespace Game.WaterSortPuzzle.Editor
 
             bottles[bottles.Length - 1] = new BottleDefinition { Colors = Array.Empty<int>() };
             m_level.Bottles = bottles;
+            m_level.OptimalSteps = -1;
             hasUnsavedChanges = true;
             m_status = null;
         }

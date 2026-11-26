@@ -59,10 +59,12 @@ namespace Game.UI
             if (!m_controller.IsCompleted || m_controller.IsInfinity)
                 return 0;
 
-            // 旧版无尽关保留存档编号，后续追加的普通关仍可通过“下一关”进入。
+            // 下一关留在当前模式，无尽挑战由选关入口单独进入。
+            bool challenge = WaterSortLevelCatalog.Get(m_controller.LevelID).IsChallenge;
             for (int levelID = m_controller.LevelID + 1; levelID <= WaterSortLevelCatalog.Count; levelID++)
             {
-                if (!WaterSortLevelCatalog.Get(levelID).IsInfinity && WaterSortProgress.IsUnlocked(levelID))
+                LevelDefinition next = WaterSortLevelCatalog.Get(levelID);
+                if (!next.IsInfinity && next.IsChallenge == challenge && WaterSortProgress.IsUnlocked(levelID))
                     return levelID;
             }
             return 0;

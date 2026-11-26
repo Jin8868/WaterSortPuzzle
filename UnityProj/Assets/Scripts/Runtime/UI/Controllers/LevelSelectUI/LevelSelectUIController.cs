@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AlloyFramework.UI;
 using Game.WaterSortPuzzle;
 
@@ -5,49 +6,80 @@ namespace Game.UI
 {
     public sealed class LevelSelectUIController : UIController<LevelSelectUIView>
     {
-        private LevelItemData[] m_levelItems; // 列表持有的关卡显示数据。
+        private readonly List<LevelItemData> m_levelItems = new List<LevelItemData>(); // 当前模式的列表数据。
+        private bool m_bound; // 首次绑定后复用列表和可见项。
+        private bool m_challenge; // 当前显示的关卡模式。
+
+        protected override void OnCreate()
+        {
+            View.NormalModeButton.onClick.AddListener(ShowNormalMode);
+            View.ChallengeModeButton.onClick.AddListener(ShowChallengeMode);
+        }
 
         protected override void OnInitData(UIEmptyData data)
         {
-            if (m_levelItems != null)
-            {
-                RefreshLevels();
-                return;
-            }
-
-            // 按目录顺序绑定正式关卡，目录末尾同时提供无尽挑战入口。
-            LevelItemData[] levels = new LevelItemData[WaterSortLevelCatalog.Count];
-            FillLevelItems(levels);
-            View.ListLevel.BindData(levels);
-            m_levelItems = levels;
+            View.ArrangeGrid();
+            Display(WaterSortNavigation.ChallengeSelected);
         }
 
         protected override void OnRefresh(UIEmptyData data)
         {
-            RefreshLevels();
+            Display(WaterSortNavigation.ChallengeSelected);
         }
 
         protected override void OnResume()
         {
-            RefreshLevels();
+            Display(WaterSortNavigation.ChallengeSelected);
         }
 
-        private void RefreshLevels()
+        protected override void OnDispose()
         {
-            // 列表保留集合引用，更新数据后重新绑定可见项并保留滚动位置。
-            FillLevelItems(m_levelItems);
-            View.ListLevel.Refresh();
+            View.NormalModeButton.onClick.RemoveListener(ShowNormalMode);
+            View.ChallengeModeButton.onClick.RemoveListener(ShowChallengeMode);
         }
 
-        private static void FillLevelItems(LevelItemData[] levels)
+        private void ShowNormalMode()
         {
+            Display(false);
+        }
+
+        private void ShowChallengeMode()
+        {
+            Display(true);
+        }
+
+        private void Display(bool challenge)
+        {
+            bool rebind = !m_bound || m_challenge != challenge;
+            m_challenge = challenge;
+            WaterSortNavigation.ChallengeSelected = challenge;
+            View.DisplayMode(challenge);
+
+            // 保留目录编号和解锁条件，不以筛选后的位置作为关卡编号。
+            m_levelItems.Clear();
             int completedLevel = WaterSortProgress.CompletedLevel;
             int bestScore = WaterSortProgress.BestScore;
-            for (int index = 0; index < levels.Length; index++)
+            for (int levelID = 1; levelID <= WaterSortLevelCatalog.Count; levelID++)
             {
-                LevelDefinition level = WaterSortLevelCatalog.Get(index + 1);
+                LevelDefinition level = WaterSortLevelCatalog.Get(levelID);
+                if (level.IsChallenge != challenge)
+                    continue;
+
                 bool unlocked = WaterSortProgress.IsUnlocked(level.ID);
-                levels[index] = new LevelItemData(level, unlocked, completedLevel, bestScore);
+                WaterSortProgress.TryGetLevelRecord(level.ID, out int bestMoveCount, out float fastestSeconds);
+                m_levelItems.Add(new LevelItemData(level, unlocked, completedLevel, bestScore,
+                    bestMoveCount, fastestSeconds));
+            }
+
+            // 切换模式从第一张卡开始，返回同一模式时保留滚动位置并刷新纪录。
+            if (rebind)
+            {
+                View.ListLevel.BindData(m_levelItems);
+                m_bound = true;
+            }
+            else
+            {
+                View.ListLevel.Refresh();
             }
         }
     }

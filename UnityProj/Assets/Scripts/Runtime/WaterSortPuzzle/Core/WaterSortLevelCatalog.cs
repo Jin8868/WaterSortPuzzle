@@ -33,12 +33,19 @@ namespace Game.WaterSortPuzzle
         public int MaxDurationSeconds;
         /// <summary>每次提示最多引导的步数，-1 表示全部，0 表示禁用。</summary>
         public int HintSteps = 3;
+        /// <summary>初始局面的最少倒水步数，-1 表示尚未配置或无尽模式。</summary>
+        public int OptimalSteps = -1;
         /// <summary>是否应用反色规则。</summary>
         public bool ReverseColor;
+        /// <summary>是否将有限关卡列入挑战模式。</summary>
+        public bool ChallengeMode;
         /// <summary>是否使用无尽模式规则。</summary>
         public bool IsInfinity;
         /// <summary>按游戏布局顺序排列的初始瓶子。</summary>
         public BottleDefinition[] Bottles;
+
+        /// <summary>特殊配置关和无尽关归入选关页的挑战模式。</summary>
+        public bool IsChallenge => ChallengeMode || IsInfinity;
 
         /// <summary>从关卡配置创建独立的瓶子数据。</summary>
         /// <returns>按配置顺序排列的瓶子。</returns>
@@ -155,7 +162,7 @@ namespace Game.WaterSortPuzzle
             if (level.ID <= 0 || string.IsNullOrWhiteSpace(level.Name)
                 || level.PrerequisiteID < 0 || level.PrerequisiteID >= level.ID
                 || level.ReverseCount < -1 || level.MaxDurationSeconds <= 0 || level.HintSteps < -1
-                || level.Bottles == null || level.Bottles.Length < 2)
+                || level.OptimalSteps < -1 || level.Bottles == null || level.Bottles.Length < 2)
             {
                 throw new InvalidDataException("关卡编号、名称、前置关卡、撤销次数、限时、提示步数或瓶子配置无效。");
             }

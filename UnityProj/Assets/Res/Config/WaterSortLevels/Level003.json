@@ -7,6 +7,7 @@
   "MaxDurationSeconds": 300,
   "ReverseColor": false,
   "IsInfinity": false,
+  "OptimalSteps": 13,
   "Bottles": [
     { "Colors": [1,2,1,3], "InvisibleCount": 0 },
     { "Colors": [2,3,2,4], "InvisibleCount": 0 },

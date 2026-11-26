@@ -7,6 +7,7 @@
     "HintSteps": 3,
     "ReverseColor": false,
     "IsInfinity": false,
+    "OptimalSteps": 7,
     "Bottles": [
         {
             "Colors": [
