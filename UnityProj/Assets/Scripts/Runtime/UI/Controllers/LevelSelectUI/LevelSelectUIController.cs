@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using AlloyFramework;
 using AlloyFramework.UI;
 using Game.WaterSortPuzzle;
 
@@ -56,6 +57,7 @@ namespace Game.UI
             View.DisplayMode(challenge);
 
             // 保留目录编号和解锁条件，不以筛选后的位置作为关卡编号。
+            WaterSortProgressModel progress = ModelManager.Instance.Get<WaterSortProgressModel>();
             m_levelItems.Clear();
             for (int levelID = 1; levelID <= WaterSortLevelCatalog.Count; levelID++)
             {
@@ -63,10 +65,10 @@ namespace Game.UI
                 if (level.IsChallenge != challenge)
                     continue;
 
-                bool unlocked = WaterSortProgress.IsUnlocked(level.ID);
-                WaterSortProgress.TryGetLevelRecord(level.ID, out int bestMoveCount, out float fastestSeconds);
-                bool completed = WaterSortProgress.IsCompleted(levelID);
-                int bestScore = level.IsInfinity ? WaterSortProgress.GetBestScore(levelID) : 0;
+                bool unlocked = progress.IsUnlocked(level.ID);
+                progress.TryGetLevelRecord(level.ID, out int bestMoveCount, out float fastestSeconds);
+                bool completed = progress.IsCompleted(levelID);
+                int bestScore = level.IsInfinity ? progress.GetBestScore(levelID) : 0;
                 m_levelItems.Add(new LevelItemData(level, unlocked, completed, bestScore,
                     bestMoveCount, fastestSeconds));
             }

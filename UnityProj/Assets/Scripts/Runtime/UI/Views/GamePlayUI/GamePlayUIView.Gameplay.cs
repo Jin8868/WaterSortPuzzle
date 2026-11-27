@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using AlloyFramework;
 using AlloyFramework.UI;
@@ -27,6 +28,9 @@ namespace Game.UI
         private float m_boardAnchorY; // 预制体中棋盘区域相对锚点的原始高度。
         private Rect m_boardLayoutBounds; // 相对静止瓶组中心的完整动画范围。
 
+        private bool m_saveFailed; // 结算写盘失败时向玩家说明成绩状态。
+
+        private static WaterSortProgressModel Progress => ModelManager.Instance.Get<WaterSortProgressModel>();
         private bool CanPlay => m_playing && !m_navigating && m_confirmationRequest == null && !m_controller.IsStopped;
 
         internal async UniTask PrepareGameplayAsync(CancellationToken cancellationToken)
@@ -58,8 +62,8 @@ namespace Game.UI
             m_controller = new WaterSortPuzzleController();
             m_controller.LevelLoaded += HandleLevelLoaded;
             m_controller.BottleReplaced += HandleBottleReplaced;
-            m_controller.Completed += HandleCompleted;
-            m_controller.TimedOut += HandleTimedOut;
+            m_controller.Completed += HandleSettlement;
+            m_controller.TimedOut += HandleSettlement;
             m_controller.BeginPour += HandleHintPourStarted;
             m_controller.FinishPour += HandleHintPourFinished;
             m_controller.SyncData += HandleHintUndo;
@@ -73,7 +77,7 @@ namespace Game.UI
 
         internal void EnterLevel(int levelID)
         {
-            if (!WaterSortProgress.IsUnlocked(levelID))
+            if (!Progress.IsUnlocked(levelID))
                 throw new ArgumentOutOfRangeException(nameof(levelID), "关卡不存在或尚未解锁。");
 
             StartLevel(levelID);
@@ -105,8 +109,8 @@ namespace Game.UI
             RefreshButtons();
             m_controller.LevelLoaded -= HandleLevelLoaded;
             m_controller.BottleReplaced -= HandleBottleReplaced;
-            m_controller.Completed -= HandleCompleted;
-            m_controller.TimedOut -= HandleTimedOut;
+            m_controller.Completed -= HandleSettlement;
+            m_controller.TimedOut -= HandleSettlement;
             m_controller.BeginPour -= HandleHintPourStarted;
             m_controller.FinishPour -= HandleHintPourFinished;
             m_controller.SyncData -= HandleHintUndo;
@@ -202,6 +206,7 @@ namespace Game.UI
 
         private void HandleLevelLoaded()
         {
+            m_saveFailed = false;
             StartGameplayAudio();
             InvalidateConfirmation();
             InvalidateResult();
@@ -315,6 +320,8 @@ namespace Game.UI
 
         private string GetResultTitle()
         {
+            if (m_saveFailed)
+                return "本局成绩未保存";
             if (m_controller.IsInfinity)
                 return $"挑战结束 · {m_controller.Score} 分";
             if (m_controller.IsTimedOut)
@@ -357,8 +364,8 @@ namespace Game.UI
         {
             if (m_controller.IsInfinity)
             {
-                SettleInfinity();
-                ShowResultAsync().Forget();
+                m_controller.Stop();
+                HandleSettlement();
                 return;
             }
 
@@ -430,31 +437,25 @@ namespace Game.UI
                 await handle.CloseAsync();
         }
 
-        private void HandleCompleted()
+        private void HandleSettlement()
         {
-            if (m_controller.IsInfinity)
-                SettleInfinity();
-            else
-                WaterSortProgress.RecordCompletion(
-                    m_controller.LevelID,
-                    m_controller.PourStepCount,
-                    (float)m_controller.ElapsedSeconds);
+            try
+            {
+                // 无尽结算保存该关最高分，普通关只在获胜后更新纪录。
+                if (m_controller.IsInfinity)
+                    Progress.RecordBestScore(m_controller.LevelID, m_controller.Score);
+                else if (m_controller.IsCompleted)
+                    Progress.RecordCompletion(m_controller.LevelID, m_controller.PourStepCount,
+                        (float)m_controller.ElapsedSeconds);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                // 继续展示本局统计，写入失败时沿用上次成功保存的解锁状态。
+                m_saveFailed = true;
+                Debug.LogException(exception);
+            }
 
             ShowResultAsync().Forget();
-        }
-
-        private void HandleTimedOut()
-        {
-            if (m_controller.IsInfinity)
-                WaterSortProgress.RecordBestScore(m_controller.LevelID, m_controller.Score);
-            ShowResultAsync().Forget();
-        }
-
-        private void SettleInfinity()
-        {
-            if (!m_controller.IsStopped)
-                m_controller.Stop();
-            WaterSortProgress.RecordBestScore(m_controller.LevelID, m_controller.Score);
         }
 
         private async UniTask ReturnToSelectionAsync()

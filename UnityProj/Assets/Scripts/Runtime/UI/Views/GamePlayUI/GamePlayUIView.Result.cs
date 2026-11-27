@@ -65,7 +65,7 @@ namespace Game.UI
             {
                 LevelDefinition next = WaterSortLevelCatalog.Get(levelID);
                 if (next.IsInfinity == m_controller.IsInfinity && next.IsChallenge == challenge
-                    && next.PrerequisiteID == m_controller.LevelID && WaterSortProgress.IsUnlocked(levelID))
+                    && next.PrerequisiteID == m_controller.LevelID && Progress.IsUnlocked(levelID))
                     return levelID;
             }
             return 0;

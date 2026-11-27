@@ -62,6 +62,7 @@ namespace Game
             // 关卡资源全部校验成功后才打开首屏，选关界面直接使用已加载的目录。
             m_hasStarted = true;
             await WaterSortLevelCatalog.LoadAsync(cancellationToken);
+            await ModelManager.Instance.Get<WaterSortProgressModel>().LoadAsync(cancellationToken);
             await WaterSortNavigation.StartAsync(cancellationToken);
             loadingSession.Report(1f);
         }

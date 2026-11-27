@@ -1,3 +1,6 @@
+using AlloyFramework;
+using Game.WaterSortPuzzle;
+
 namespace Game
 {
     /// <summary>业务 Model 和 UIModel 的统一注册入口。</summary>
@@ -8,8 +11,7 @@ namespace Game
         /// </summary>
         public static void RegisterModels()
         {
-            // 新增业务 Model 后在此注册，例如：ModelManager.Instance.Register<PlayerModel>();
-            // 所有注册类型必须继承 AlloyFramework.ModelBase 并提供公开的无参构造函数。
+            ModelManager.Instance.Register<WaterSortProgressModel>();
         }
     }
 }

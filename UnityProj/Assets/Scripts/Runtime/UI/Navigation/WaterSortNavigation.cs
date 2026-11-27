@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using AlloyFramework;
 using AlloyFramework.UI;
 using Cysharp.Threading.Tasks;
 using Game.UI;
@@ -31,7 +32,8 @@ namespace Game.WaterSortPuzzle
 
         internal static UniTask OpenLevelAsync(int levelID)
         {
-            if (m_lifetime == null || !WaterSortProgress.IsUnlocked(levelID)) return UniTask.CompletedTask;
+            if (m_lifetime == null || !ModelManager.Instance.Get<WaterSortProgressModel>().IsUnlocked(levelID))
+                return UniTask.CompletedTask;
             return SwitchAsync(levelID, m_lifetime.Token);
         }
 
