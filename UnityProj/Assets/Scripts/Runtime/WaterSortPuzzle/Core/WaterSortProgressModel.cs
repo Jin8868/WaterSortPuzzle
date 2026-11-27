@@ -61,9 +61,14 @@ namespace Game.WaterSortPuzzle
             if (levelID < 1 || levelID > WaterSortLevelCatalog.Count)
                 return false;
 
+            int index = FindRecordIndex(levelID);
+            if (index < 0)
+                return false;
+
+            LevelRecord record = Progress.Records[index];
             return WaterSortLevelCatalog.Get(levelID).IsInfinity
-                ? GetBestScore(levelID) > 0
-                : TryGetLevelRecord(levelID, out _, out _);
+                ? record.BestScore > 0
+                : record.HasCompletion || record.CompletedByGM;
         }
 
         internal bool IsUnlocked(int levelID)
@@ -72,7 +77,11 @@ namespace Game.WaterSortPuzzle
                 return false;
 
             int prerequisiteID = WaterSortLevelCatalog.Get(levelID).PrerequisiteID;
-            return prerequisiteID == 0 || IsCompleted(prerequisiteID);
+            if (prerequisiteID == 0 || IsCompleted(prerequisiteID))
+                return true;
+
+            int index = FindRecordIndex(levelID);
+            return index >= 0 && Progress.Records[index].UnlockedByGM;
         }
 
         internal bool TryGetLevelRecord(int levelID, out int bestMoveCount, out float fastestSeconds)
@@ -130,6 +139,94 @@ namespace Game.WaterSortPuzzle
             SaveRecord(index, new LevelRecord { LevelID = levelID, BestScore = score });
         }
 
+        internal void CompleteNormalLevelsThrough(int targetNumber)
+        {
+            // 选关页按目录顺序显示普通关；跳过无尽关和独立挑战的内部 ID。
+            var records = new List<LevelRecord>(Progress.Records);
+            int normalNumber = 0;
+            bool changed = false;
+            for (int id = 1; id <= WaterSortLevelCatalog.Count; id++)
+            {
+                if (WaterSortLevelCatalog.Get(id).IsChallenge)
+                    continue;
+
+                normalNumber++;
+                if (!IsCompleted(id))
+                {
+                    int index = FindRecordIndex(id);
+                    LevelRecord record = index < 0 ? new LevelRecord { LevelID = id } : records[index];
+                    record.CompletedByGM = true;
+                    if (index < 0)
+                        records.Add(record);
+                    else
+                        records[index] = record;
+                    changed = true;
+                }
+
+                if (normalNumber == targetNumber)
+                {
+                    if (changed)
+                        SaveRecords(records);
+                    return;
+                }
+            }
+
+            throw new ArgumentOutOfRangeException(nameof(targetNumber), $"请输入 1 到 {normalNumber} 的普通关卡序号。");
+        }
+
+        internal void UnlockLevelsForGM(int? endlessNumber = null)
+        {
+            // 指定序号时只解锁无尽前 N 关；不指定时解锁整个目录，包含独立挑战。
+            var records = new List<LevelRecord>(Progress.Records);
+            bool changed = false;
+            int number = 0;
+            for (int id = 1; id <= WaterSortLevelCatalog.Count; id++)
+            {
+                if (endlessNumber.HasValue && !WaterSortLevelCatalog.Get(id).IsInfinity)
+                    continue;
+
+                number++;
+                if (!IsUnlocked(id))
+                {
+                    int index = FindRecordIndex(id);
+                    LevelRecord record = index < 0 ? new LevelRecord { LevelID = id } : records[index];
+                    record.UnlockedByGM = true;
+                    if (index < 0)
+                        records.Add(record);
+                    else
+                        records[index] = record;
+                    changed = true;
+                }
+
+                if (number == endlessNumber)
+                    break;
+            }
+
+            // 无效输入丢弃暂存修改；成功时只写一次，不生成成绩或推进通关状态。
+            if (endlessNumber.HasValue && number != endlessNumber)
+                throw new ArgumentOutOfRangeException(nameof(endlessNumber), $"请输入 1 到 {number} 的无尽关卡序号。");
+            if (changed)
+                SaveRecords(records);
+        }
+
+        internal void DeleteSave()
+        {
+            // 先删除临时文件；正式文件删除成功后再发布空快照。
+            string directory = Application.persistentDataPath;
+            try
+            {
+                string path = Path.Combine(directory, FILENAME);
+                File.Delete(path + ".tmp");
+                File.Delete(path);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // 首次启动尚未创建存档目录时，磁盘已处于空档状态。
+            }
+
+            m_progress = new ProgressData { Version = SAVEVERSION, Records = new List<LevelRecord>() };
+        }
+
         private static ProgressData ReadProgress(string json)
         {
             ProgressData progress;
@@ -151,7 +248,8 @@ namespace Game.WaterSortPuzzle
             {
                 bool validResult = record.HasCompletion
                     ? record.BestScore == 0 && record.BestMoveCount >= 0 && IsValidTime(record.FastestSeconds)
-                    : record.BestScore > 0 && record.BestMoveCount == 0 && record.FastestSeconds == 0f;
+                    : (record.BestScore > 0 || ((record.CompletedByGM || record.UnlockedByGM) && record.BestScore == 0))
+                        && record.BestMoveCount == 0 && record.FastestSeconds == 0f;
                 if (record.LevelID < 1 || !validResult || !levelIDs.Add(record.LevelID))
                     throw new InvalidDataException($"关卡进度存档包含无效记录，关卡编号 {record.LevelID}。");
             }
@@ -183,8 +281,16 @@ namespace Game.WaterSortPuzzle
             if (index < 0)
                 records.Add(record);
             else
+            {
+                record.UnlockedByGM = records[index].UnlockedByGM;
                 records[index] = record;
+            }
 
+            SaveRecords(records);
+        }
+
+        private void SaveRecords(List<LevelRecord> records)
+        {
             var pendingProgress = new ProgressData { Version = SAVEVERSION, Records = records };
             string directory = Application.persistentDataPath;
             string path = Path.Combine(directory, FILENAME);
@@ -219,6 +325,12 @@ namespace Game.WaterSortPuzzle
 
             /// <summary>该记录是否保存了有限关卡的通关成绩。</summary>
             public bool HasCompletion;
+
+            /// <summary>由 GM 标记通关，个人成绩在玩家实际通关时记录。</summary>
+            public bool CompletedByGM;
+
+            /// <summary>GM 直接授予进入权限，独立于通关和得分。</summary>
+            public bool UnlockedByGM;
 
             /// <summary>有限关卡最少步数。</summary>
             public int BestMoveCount;
