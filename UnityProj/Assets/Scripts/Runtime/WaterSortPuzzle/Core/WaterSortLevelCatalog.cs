@@ -31,6 +31,8 @@ namespace Game.WaterSortPuzzle
         public int ReverseCount = GameDefine.DEFAULTREVERSECOUNT;
         /// <summary>关卡时限（秒）。</summary>
         public int MaxDurationSeconds;
+        /// <summary>无尽开局倒计时秒数，完成水瓶可以在总限时内续时。</summary>
+        public int InfinityStartSeconds = (int)WaterSortSettings.DURATION;
         /// <summary>每次提示最多引导的步数，-1 表示全部，0 表示禁用。</summary>
         public int HintSteps = 3;
         /// <summary>初始局面的最少倒水步数，-1 表示尚未配置或无尽模式。</summary>
@@ -46,6 +48,11 @@ namespace Game.WaterSortPuzzle
 
         /// <summary>特殊配置关和无尽关归入选关页的挑战模式。</summary>
         public bool IsChallenge => ChallengeMode || IsInfinity;
+
+        /// <summary>在选关卡片和棋盘显示的模式内关卡名称。</summary>
+        public string DisplayName => int.TryParse(Name, out _)
+            ? (IsInfinity ? $"无尽第 {Name} 关" : $"第 {Name} 关")
+            : Name;
 
         /// <summary>从关卡配置创建独立的瓶子数据。</summary>
         /// <returns>按配置顺序排列的瓶子。</returns>
@@ -166,6 +173,9 @@ namespace Game.WaterSortPuzzle
             {
                 throw new InvalidDataException("关卡编号、名称、前置关卡、撤销次数、限时、提示步数或瓶子配置无效。");
             }
+
+            if (level.IsInfinity && level.InfinityStartSeconds <= 0)
+                throw new InvalidDataException("无尽模式的开局倒计时必须大于零。");
 
             ValidateBottles(level);
             return level;

@@ -8,7 +8,7 @@ namespace Game
         internal LevelItemData(
             LevelDefinition level,
             bool unlocked,
-            int completedLevel,
+            bool completed,
             int bestScore,
             int bestMoveCount,
             float fastestSeconds)
@@ -17,8 +17,8 @@ namespace Game
             IsInfinity = level.IsInfinity;
             IsChallenge = level.IsChallenge;
             IsUnlocked = unlocked;
-            DisplayName = IsInfinity ? "无尽挑战" : $"第 {level.Name} 关";
-            StatusText = unlocked ? GetStatusText(level, completedLevel) : string.Empty;
+            DisplayName = level.DisplayName;
+            StatusText = unlocked ? GetStatusText(level, completed) : string.Empty;
             PrimaryValue = IsInfinity ? bestScore.ToString() : FormatMoves(bestMoveCount, level.OptimalSteps);
             FastestTime = IsInfinity ? string.Empty : FormatTime(fastestSeconds);
         }
@@ -32,14 +32,14 @@ namespace Game
         internal bool IsInfinity { get; }
         internal bool IsChallenge { get; }
 
-        private static string GetStatusText(LevelDefinition level, int completedLevel)
+        private static string GetStatusText(LevelDefinition level, bool completed)
         {
             if (level.IsInfinity)
             {
                 return "无尽冲分";
             }
 
-            if (level.ID <= completedLevel)
+            if (completed)
             {
                 return level.ReverseColor ? "反色 · 已通关" : "已通关";
             }

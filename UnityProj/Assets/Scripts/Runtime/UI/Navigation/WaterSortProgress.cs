@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace Game.WaterSortPuzzle
 {
@@ -10,13 +10,33 @@ namespace Game.WaterSortPuzzle
         private const string BESTMOVESKEYPREFIX = "WaterSortPuzzle.BestMoves."; // 普通关最少步数的存档键前缀。
         private const string FASTESTSECONDSKEYPREFIX = "WaterSortPuzzle.FastestSeconds."; // 普通关最快用时的存档键前缀。
 
-        internal static int CompletedLevel => PlayerPrefs.GetInt(PROGRESSKEY, 0);
-        internal static int BestScore => PlayerPrefs.GetInt(BESTSCOREKEY, 0);
+        private const int LASTLEGACYFINITEID = 13; // 旧版最高通关编号只覆盖原有的有限关卡。
+        private const int LEGACYENDLESSID = 14; // 旧版无尽最高分归属现在的无尽第一关。
+
+        internal static int GetBestScore(int levelID)
+        {
+            string key = BESTSCOREKEY + "." + levelID;
+            int legacyScore = levelID == LEGACYENDLESSID ? PlayerPrefs.GetInt(BESTSCOREKEY, 0) : 0;
+            return PlayerPrefs.GetInt(key, legacyScore);
+        }
+
+        internal static bool IsCompleted(int levelID)
+        {
+            if (WaterSortLevelCatalog.Get(levelID).IsInfinity)
+                return GetBestScore(levelID) > 0;
+
+            // 旧存档只能还原原目录中的通关状态，新关卡使用各自的通关成绩。
+            return PlayerPrefs.HasKey(BESTMOVESKEYPREFIX + levelID)
+                || (levelID <= LASTLEGACYFINITEID && levelID <= PlayerPrefs.GetInt(PROGRESSKEY, 0));
+        }
 
         internal static bool IsUnlocked(int levelID)
         {
-            return levelID >= 1 && levelID <= WaterSortLevelCatalog.Count
-                && WaterSortLevelCatalog.Get(levelID).PrerequisiteID <= CompletedLevel;
+            if (levelID < 1 || levelID > WaterSortLevelCatalog.Count)
+                return false;
+
+            int prerequisiteID = WaterSortLevelCatalog.Get(levelID).PrerequisiteID;
+            return prerequisiteID == 0 || IsCompleted(prerequisiteID);
         }
 
         internal static bool TryGetLevelRecord(int levelID, out int bestMoveCount, out float fastestSeconds)
@@ -32,11 +52,7 @@ namespace Game.WaterSortPuzzle
             if (!IsUnlocked(levelID) || WaterSortLevelCatalog.Get(levelID).IsInfinity)
                 return;
 
-            // 首次通关推进解锁进度，重玩仍可单独刷新任意一项纪录。
-            bool advanced = levelID > CompletedLevel;
-            if (advanced)
-                PlayerPrefs.SetInt(PROGRESSKEY, levelID);
-
+            // 每个关卡独立记录，挑战成绩不会提前解锁普通关。
             string bestMovesKey = BESTMOVESKEYPREFIX + levelID;
             string fastestSecondsKey = FASTESTSECONDSKEYPREFIX + levelID;
             int bestMoveCount = PlayerPrefs.GetInt(bestMovesKey, int.MaxValue);
@@ -48,14 +64,14 @@ namespace Game.WaterSortPuzzle
             if (improvedTime)
                 PlayerPrefs.SetFloat(fastestSecondsKey, elapsedSeconds);
 
-            if (advanced || improvedMoves || improvedTime)
+            if (improvedMoves || improvedTime)
                 PlayerPrefs.Save();
         }
 
-        internal static void RecordBestScore(int score)
+        internal static void RecordBestScore(int levelID, int score)
         {
-            if (score <= BestScore) return;
-            PlayerPrefs.SetInt(BESTSCOREKEY, score);
+            if (!IsUnlocked(levelID) || score <= GetBestScore(levelID)) return;
+            PlayerPrefs.SetInt(BESTSCOREKEY + "." + levelID, score);
             PlayerPrefs.Save();
         }
     }

@@ -146,6 +146,9 @@ namespace Game.WaterSortPuzzle.Editor
             if (EditorGUI.EndChangeCheck())
                 m_level.OptimalSteps = -1;
 
+            if (m_level.IsInfinity)
+                m_level.InfinityStartSeconds = EditorGUILayout.IntField("开局倒计时（秒）", m_level.InfinityStartSeconds);
+
             // 分类只影响选关入口，无尽关始终从挑战模式进入。
             using (new EditorGUI.DisabledScope(m_level.IsInfinity))
             {

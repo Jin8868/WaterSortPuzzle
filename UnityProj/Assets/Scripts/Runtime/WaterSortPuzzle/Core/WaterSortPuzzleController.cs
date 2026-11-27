@@ -81,7 +81,7 @@ namespace Game.WaterSortPuzzle
             Score = 0;
             m_timeLimit = level.MaxDurationSeconds;
             float availableTime = (float)Math.Max(0d, m_timeLimit - ElapsedSeconds);
-            RemainingTime = IsInfinity ? Math.Min(WaterSortSettings.DURATION, availableTime) : availableTime;
+            RemainingTime = IsInfinity ? Math.Min(level.InfinityStartSeconds, availableTime) : availableTime;
             ReverseRemaining = level.ReverseCount;
             IsStopped = false;
             IsCompleted = false;

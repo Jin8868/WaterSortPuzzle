@@ -56,15 +56,16 @@ namespace Game.UI
 
         private int GetNextLevelID()
         {
-            if (!m_controller.IsCompleted || m_controller.IsInfinity)
+            if (m_controller.IsInfinity ? m_controller.Score <= 0 : !m_controller.IsCompleted)
                 return 0;
 
-            // 下一关留在当前模式，无尽挑战由选关入口单独进入。
+            // 按玩法和前置编号衔接各自的关卡链，不跨到其他模式。
             bool challenge = WaterSortLevelCatalog.Get(m_controller.LevelID).IsChallenge;
             for (int levelID = m_controller.LevelID + 1; levelID <= WaterSortLevelCatalog.Count; levelID++)
             {
                 LevelDefinition next = WaterSortLevelCatalog.Get(levelID);
-                if (!next.IsInfinity && next.IsChallenge == challenge && WaterSortProgress.IsUnlocked(levelID))
+                if (next.IsInfinity == m_controller.IsInfinity && next.IsChallenge == challenge
+                    && next.PrerequisiteID == m_controller.LevelID && WaterSortProgress.IsUnlocked(levelID))
                     return levelID;
             }
             return 0;

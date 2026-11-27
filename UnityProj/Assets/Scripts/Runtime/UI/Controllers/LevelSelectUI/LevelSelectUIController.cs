@@ -57,8 +57,6 @@ namespace Game.UI
 
             // 保留目录编号和解锁条件，不以筛选后的位置作为关卡编号。
             m_levelItems.Clear();
-            int completedLevel = WaterSortProgress.CompletedLevel;
-            int bestScore = WaterSortProgress.BestScore;
             for (int levelID = 1; levelID <= WaterSortLevelCatalog.Count; levelID++)
             {
                 LevelDefinition level = WaterSortLevelCatalog.Get(levelID);
@@ -67,9 +65,15 @@ namespace Game.UI
 
                 bool unlocked = WaterSortProgress.IsUnlocked(level.ID);
                 WaterSortProgress.TryGetLevelRecord(level.ID, out int bestMoveCount, out float fastestSeconds);
-                m_levelItems.Add(new LevelItemData(level, unlocked, completedLevel, bestScore,
+                bool completed = WaterSortProgress.IsCompleted(levelID);
+                int bestScore = level.IsInfinity ? WaterSortProgress.GetBestScore(levelID) : 0;
+                m_levelItems.Add(new LevelItemData(level, unlocked, completed, bestScore,
                     bestMoveCount, fastestSeconds));
             }
+
+            // 挑战页从无尽第一关开始，再列出保留的独立限时挑战。
+            if (challenge)
+                m_levelItems.Sort(CompareChallenges);
 
             // 切换模式从第一张卡开始，返回同一模式时保留滚动位置并刷新纪录。
             if (rebind)
@@ -81,6 +85,12 @@ namespace Game.UI
             {
                 View.ListLevel.Refresh();
             }
+        }
+
+        private static int CompareChallenges(LevelItemData left, LevelItemData right)
+        {
+            int group = right.IsInfinity.CompareTo(left.IsInfinity);
+            return group != 0 ? group : left.LevelID.CompareTo(right.LevelID);
         }
     }
 }

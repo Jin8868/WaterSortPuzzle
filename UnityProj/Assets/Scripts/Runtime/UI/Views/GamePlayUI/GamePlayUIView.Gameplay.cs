@@ -227,7 +227,7 @@ namespace Game.UI
             FitBoard();
 
             LevelDefinition level = WaterSortLevelCatalog.Get(m_controller.LevelID);
-            m_levelLabel = "关卡 " + level.Name;
+            m_levelLabel = level.DisplayName;
             m_lastReverse = int.MinValue;
             RefreshLevelInfo();
             RefreshButtons();
@@ -307,16 +307,19 @@ namespace Game.UI
                 string timer = $"{m_lastTimerSecond / 60:00}:{m_lastTimerSecond % 60:00}";
                 string timerColor = m_lastTimerSecond <= COUNTDOWNSECONDS ? "#FF9081" : "#FFD786";
                 string timerLine = $"<size=64><b><color={timerColor}>{timer}</color></b></size>";
-                string levelInfo = m_controller.IsInfinity ? "无尽模式" : GetHintLevelInfo();
+                string levelInfo = m_controller.IsInfinity
+                    ? $"{m_levelLabel} · {m_controller.Score} 分" : GetHintLevelInfo();
                 TxtLevelInfo.text = timerLine + "\n" + levelInfo;
             }
         }
 
         private string GetResultTitle()
         {
+            if (m_controller.IsInfinity)
+                return $"挑战结束 · {m_controller.Score} 分";
             if (m_controller.IsTimedOut)
                 return "超时失败";
-            return m_controller.IsInfinity ? "挑战结束" : "关卡完成";
+            return "关卡完成";
         }
 
         private void HandleReverse()
@@ -443,7 +446,7 @@ namespace Game.UI
         private void HandleTimedOut()
         {
             if (m_controller.IsInfinity)
-                WaterSortProgress.RecordBestScore(m_controller.Score);
+                WaterSortProgress.RecordBestScore(m_controller.LevelID, m_controller.Score);
             ShowResultAsync().Forget();
         }
 
@@ -451,7 +454,7 @@ namespace Game.UI
         {
             if (!m_controller.IsStopped)
                 m_controller.Stop();
-            WaterSortProgress.RecordBestScore(m_controller.Score);
+            WaterSortProgress.RecordBestScore(m_controller.LevelID, m_controller.Score);
         }
 
         private async UniTask ReturnToSelectionAsync()

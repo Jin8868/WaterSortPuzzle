@@ -1,6 +1,6 @@
 {
     "ID": 13,
-    "Name": "99",
+    "Name": "限时特别挑战",
     "PrerequisiteID": 12,
     "ReverseCount": 10,
     "MaxDurationSeconds": 300,

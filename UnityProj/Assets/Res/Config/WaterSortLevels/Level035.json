@@ -1,0 +1,32 @@
+{
+  "ID": 35,
+  "Name": "04",
+  "PrerequisiteID": 34,
+  "ReverseCount": -1,
+  "HintSteps": 0,
+  "MaxDurationSeconds": 240,
+  "InfinityStartSeconds": 102,
+  "ReverseColor": false,
+  "IsInfinity": true,
+  "OptimalSteps": -1,
+  "Bottles": [
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [0,0,0,0], "InvisibleCount": 0 },
+    { "Colors": [], "InvisibleCount": 0 },
+    { "Colors": [], "InvisibleCount": 0 },
+    { "Colors": [], "InvisibleCount": 0 }
+  ]
+}
