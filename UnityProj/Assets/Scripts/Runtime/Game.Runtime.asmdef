@@ -5,8 +5,6 @@
     "Alloy.Runtime",
     "Luban.Runtime",
     "UniTask",
-    "PulseVideoPlayer",
-    "PulseVideoPlayer.UI",
     "Unity.TextMeshPro",
     "Unity.ugui",
     "YooAsset"

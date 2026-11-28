@@ -1,9 +1,0 @@
-{
-  "name": "Game.Pulse.Editor",
-  "rootNamespace": "Game.Editor",
-  "references": [],
-  "includePlatforms": [
-    "Editor"
-  ],
-  "autoReferenced": false
-}

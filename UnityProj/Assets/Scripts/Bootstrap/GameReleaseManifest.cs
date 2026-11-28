@@ -8,8 +8,6 @@ namespace Game
     {
         /// <summary>Unity 目标平台名称。</summary>
         public string Platform;
-        /// <summary>主包裁剪基线标识。</summary>
-        public string BaselineID;
         /// <summary>不可变发布目录标识。</summary>
         public string ReleaseID;
         /// <summary>本次发布固定使用的包版本。</summary>

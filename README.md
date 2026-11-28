@@ -4,9 +4,7 @@ Unity 版本：2022.3.17f1c1。使用 Unity Hub 打开本仓库中的 UnityProj�
 
 ## 本地依赖
 
-将 AlloyFramework 和 PulseVideoPlayer 仓库放在 WaterSortPuzzle 的同级目录。
-Unity 通过 Packages/manifest.json 的本地路径引用它们。
-这些依赖的源码不提交到本仓库，修改需在各自仓库管理。
+将 AlloyFramework 仓库放在 WaterSortPuzzle 的同级目录。Unity 通过 `Packages/manifest.json` 中的本地路径引用框架。
 
 ## Wwise SDK
 

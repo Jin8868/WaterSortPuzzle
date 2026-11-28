@@ -2,7 +2,7 @@
   "name": "Game.HotUpdate.Editor",
   "rootNamespace": "Game.Editor",
   "references": [
-    "Game.Bootstrap", "Alloy.Runtime", "Alloy.HybridCLR", "HybridCLR.Editor", "YooAsset.Editor", "YooAsset"
+    "Game.Bootstrap", "Alloy.Runtime", "YooAsset.Editor", "YooAsset"
   ],
   "includePlatforms": ["Editor"],
   "autoReferenced": true

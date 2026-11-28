@@ -105,17 +105,6 @@ sysinfo.txt
 /UnityProj/Assets/Wwise/**/*.pdb.meta
 /UnityProj/Assets/Wwise/**/*.mdb.meta
 
-# Locally prepared Pulse test media; keep scripts and collection settings tracked
-/UnityProj/Assets/Res/Video/**/*.pulse
-/UnityProj/Assets/Res/Video/**/*.pulse.meta
-
-# Local synthetic video test folder metadata.
-/UnityProj/Assets/Res/Video/Synthetic.meta
-
-# Locally prepared subtitle fixtures.
-/UnityProj/Assets/Res/Video/Synthetic/*.srt
-/UnityProj/Assets/Res/Video/Synthetic/*.srt.meta
-
 # Wwise SDK is restored locally; project settings remain tracked.
 /UnityProj/Assets/Wwise/*
 !/UnityProj/Assets/Wwise/ScriptableObjects/

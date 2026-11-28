@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8e70a4e125b94148bf3822f6c4ca9021, type: 3}
   m_Name: GameHotUpdateSettings
   m_EditorClassIdentifier:
-  m_codeMode: 1
-  m_resourceMode: 1
+  m_codeMode: 0
+  m_resourceMode: 0
   m_editorHostMode: 0
   m_serverURL: http://127.0.0.1:8080
   m_channel: local
