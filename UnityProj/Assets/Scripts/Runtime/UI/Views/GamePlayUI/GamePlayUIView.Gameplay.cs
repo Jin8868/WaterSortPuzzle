@@ -7,6 +7,7 @@ using AlloyFramework.UI;
 using Cysharp.Threading.Tasks;
 using Game.WaterSortPuzzle;
 using UnityEngine;
+using UnityEngine.U2D;
 
 namespace Game.UI
 {
@@ -15,6 +16,7 @@ namespace Game.UI
         private readonly Dictionary<BottleData, BottleCell> m_cells = new Dictionary<BottleData, BottleCell>(); // 瓶子映射。
         private readonly List<BottleCell> m_liveCells = new List<BottleCell>(); // 包括正在滑出的实例。
         private readonly Stack<BottleCell> m_bottlePool = new Stack<BottleCell>(); // 回收后的瓶子。
+        private IAssetHandle<SpriteAtlas> m_bottleAtlasHandle; // 瓶身、瓶盖和描边共用的图集句柄。
         private IAssetHandle<GameObject> m_bottlePrefabHandle; // 与瓶子实例共用页面生命周期的预制体句柄。
         private WaterSortPuzzleController m_controller; // 当前打开期间的游戏会话。
         private ConfirmationRequest m_confirmationRequest; // 当前关卡正在等待的确认请求。
@@ -40,17 +42,27 @@ namespace Game.UI
             if (m_bottlePrefabHandle != null)
                 return;
 
-            // 页面关闭后可能复用，瓶子实例和源资源一同保留至页面销毁。
-            IAssetHandle<GameObject> handle = await WaterSortPuzzleResources.LoadBottlePrefabAsync(cancellationToken);
+            // 先加载图集，使预制体解包时可绑定瓶身等 Sprite 的图集纹理。
+            IAssetHandle<SpriteAtlas> atlasHandle = null;
+            IAssetHandle<GameObject> prefabHandle = null;
             try
             {
+                atlasHandle = await WaterSortPuzzleResources.LoadBottleAtlasAsync(cancellationToken);
+                prefabHandle = await WaterSortPuzzleResources.LoadBottlePrefabAsync(cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
-                m_bottlePrefabHandle = handle;
+                if (m_bottlePrefabHandle != null)
+                    return;
+
+                // 页面关闭后可能复用，两个资源句柄都保留至页面销毁。
+                m_bottleAtlasHandle = atlasHandle;
+                m_bottlePrefabHandle = prefabHandle;
+                atlasHandle = null;
+                prefabHandle = null;
             }
-            catch
+            finally
             {
-                handle.Dispose();
-                throw;
+                prefabHandle?.Dispose();
+                atlasHandle?.Dispose();
             }
         }
 
@@ -385,7 +397,7 @@ namespace Game.UI
                     await UIManager.Instance.OpenAsync(GameUI.ConfirmUI, request.Data, loading.Token);
                 if (ReferenceEquals(m_confirmationRequest, request))
                     request.Handle = handle;
-                else if (handle.IsValid && handle.Controller.IsShowing(request.Data))
+                else if (UIManager.Instance != null && handle.IsValid && handle.Controller.IsShowing(request.Data))
                     await handle.CloseAsync();
             }
             catch (OperationCanceledException)
@@ -431,8 +443,10 @@ namespace Game.UI
             m_confirmationRequest = null;
             request.Loading?.Cancel();
             await request.Opened.Task;
+
+            // 框架退出时单例先清空，剩余弹窗由框架统一释放。
             UIHandle<ConfirmUIController> handle = request.Handle;
-            if (handle != null && handle.IsValid
+            if (UIManager.Instance != null && handle != null && handle.IsValid
                 && (handle.State == UIState.Closing || handle.Controller.IsShowing(request.Data)))
                 await handle.CloseAsync();
         }
@@ -486,6 +500,8 @@ namespace Game.UI
             m_audioScope = null;
             m_bottlePrefabHandle?.Dispose();
             m_bottlePrefabHandle = null;
+            m_bottleAtlasHandle?.Dispose();
+            m_bottleAtlasHandle = null;
         }
 
         private sealed class ConfirmationRequest
