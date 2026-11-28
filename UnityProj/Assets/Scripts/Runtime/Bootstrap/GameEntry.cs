@@ -63,6 +63,7 @@ namespace Game
             m_hasStarted = true;
             await WaterSortLevelCatalog.LoadAsync(cancellationToken);
             await ModelManager.Instance.Get<WaterSortProgressModel>().LoadAsync(cancellationToken);
+            await ModelManager.Instance.Get<WaterSortAudioSettingsModel>().LoadAsync(cancellationToken);
             await WaterSortNavigation.StartAsync(cancellationToken);
             loadingSession.Report(1f);
         }

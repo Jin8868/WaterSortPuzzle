@@ -73,3 +73,18 @@ MonoBehaviour:
     m_openMode: 0
     m_navigation: 0
     m_pauseCovered: 0
+  - m_prefabGuid: 542e924caca847a3b70d6c9b245f53fa
+    m_uiName: SettingsUI
+    m_dataTypeName:
+    m_scriptNamespace: Game.UI
+    m_viewFolder: Assets/Scripts/Runtime/UI/Views/SettingsUI
+    m_controllerFolder: Assets/Scripts/Runtime/UI/Controllers/SettingsUI
+    m_hasGenerated: 1
+    m_layer: 200
+    m_layout: 1
+    m_background: 0
+    m_input: 1
+    m_cache: 0
+    m_openMode: 0
+    m_navigation: 0
+    m_pauseCovered: 0

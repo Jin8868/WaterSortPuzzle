@@ -11,6 +11,7 @@ namespace Game.UI
 
         [SerializeField] private Button m_normalModeButton; // 普通关卡页签。
         [SerializeField] private Button m_challengeModeButton; // 挑战关卡页签。
+        [SerializeField] private Button m_settingsButton; // 打开全局设置弹窗的入口。
         [SerializeField] private Image m_panelBackground; // 随模式切换色调的列表背景。
         [SerializeField] private Text m_heading; // 选关标题或挑战玩法说明。
         private Vector2 m_safeAreaSize; // 上次布局使用的安全区尺寸。
@@ -32,6 +33,7 @@ namespace Game.UI
 
         internal Button NormalModeButton => m_normalModeButton;
         internal Button ChallengeModeButton => m_challengeModeButton;
+        internal Button SettingsButton => m_settingsButton;
 
         internal void DisplayMode(bool challenge)
         {

@@ -17,7 +17,7 @@ namespace Game.UI
 
         private static Dictionary<string, UIDefinition> CreateDefinitions()
         {
-            var definitions = new Dictionary<string, UIDefinition>(4);
+            var definitions = new Dictionary<string, UIDefinition>(5);
             AddDefinitions0(definitions);
             return definitions;
         }
@@ -74,6 +74,21 @@ namespace Game.UI
                 "ResultUI",
                 new UIDefinitionBuilder<ResultUIView, ResultUIController, ResultUIData>("ResultUI")
                     .Location("Prefabs/UI/GameUI/ResultUI")
+                    .Layer(UILayer.POPUP)
+                    .Layout(UILayoutMode.Window)
+                    .Background(UIBackgroundMode.None)
+                    .Input(UIInputMode.Block)
+                    .Cache(UICacheMode.DestroyOnClose)
+                    .OpenMode(UIOpenMode.SingleRefresh)
+                    .Navigation(UINavigationMode.None)
+                    .PauseCovered(false)
+                    .Build());
+
+            // 注册 SettingsUI 的静态界面定义。
+            definitions.Add(
+                "SettingsUI",
+                new UIDefinitionBuilder<SettingsUIView, SettingsUIController>("SettingsUI")
+                    .Location("Prefabs/UI/GameUI/SettingsUI")
                     .Layer(UILayer.POPUP)
                     .Layout(UILayoutMode.Window)
                     .Background(UIBackgroundMode.None)

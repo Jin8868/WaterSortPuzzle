@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using AlloyFramework;
 using AlloyFramework.UI;
+using Cysharp.Threading.Tasks;
 using Game.WaterSortPuzzle;
+using UnityEngine;
 
 namespace Game.UI
 {
@@ -15,6 +17,7 @@ namespace Game.UI
         {
             View.NormalModeButton.onClick.AddListener(ShowNormalMode);
             View.ChallengeModeButton.onClick.AddListener(ShowChallengeMode);
+            View.SettingsButton.onClick.AddListener(OpenSettings);
         }
 
         protected override void OnInitData(UIEmptyData data)
@@ -37,6 +40,7 @@ namespace Game.UI
         {
             View.NormalModeButton.onClick.RemoveListener(ShowNormalMode);
             View.ChallengeModeButton.onClick.RemoveListener(ShowChallengeMode);
+            View.SettingsButton.onClick.RemoveListener(OpenSettings);
         }
 
         private void ShowNormalMode()
@@ -47,6 +51,11 @@ namespace Game.UI
         private void ShowChallengeMode()
         {
             Display(true);
+        }
+
+        private static void OpenSettings()
+        {
+            UIManager.Instance.OpenAsync(GameUI.SettingsUI).Forget(Debug.LogException);
         }
 
         private void Display(bool challenge)

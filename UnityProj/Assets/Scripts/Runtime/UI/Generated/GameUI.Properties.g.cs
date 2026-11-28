@@ -30,5 +30,11 @@ namespace Game.UI
         /// </summary>
         public static UIDefinition<ResultUIView, ResultUIController, ResultUIData> ResultUI =>
             (UIDefinition<ResultUIView, ResultUIController, ResultUIData>)m_definitions["ResultUI"];
+
+        /// <summary>
+        /// SettingsUI 的静态界面定义。
+        /// </summary>
+        public static UIDefinition<SettingsUIView, SettingsUIController> SettingsUI =>
+            (UIDefinition<SettingsUIView, SettingsUIController>)m_definitions["SettingsUI"];
     }
 }

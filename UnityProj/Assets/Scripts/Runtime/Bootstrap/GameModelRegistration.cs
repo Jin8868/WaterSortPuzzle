@@ -12,6 +12,7 @@ namespace Game
         public static void RegisterModels()
         {
             ModelManager.Instance.Register<WaterSortProgressModel>();
+            ModelManager.Instance.Register<WaterSortAudioSettingsModel>();
         }
     }
 }
